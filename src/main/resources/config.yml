@@ -1,0 +1,71 @@
+plugin:
+  debug: false
+  timezone: Asia/Tokyo
+
+season:
+  auto_rotate_daily: true
+  auto_rotate_weekly: true
+  active_world: world
+  daily_rotation_time: "00:00"
+  weekly_rotation_time: "00:00"
+  finale:
+    block_new_player_orders: true
+    block_claim_manual_renew: true
+    block_claim_auto_renew: true
+  schedule:
+    opening_at: ""
+    active_at: ""
+    finale_at: ""
+    archive_at: ""
+
+player:
+  newcomer_days: 7
+  newcomer_sp_limit: 100
+  newcomer:
+    first_order_fee_exempt: true
+  starter:
+    coins: 250
+    sp: 15
+  helper:
+    allow_newcomer_helpers: false
+    cooldown_hours: 24
+    target_cooldown_hours: 24
+    reward_coins: 150
+    reward_sp: 10
+    target_bonus_coins: 100
+    target_bonus_sp: 5
+  likes:
+    minimum_playtime_hours: 2
+    daily_cap: 3
+    suspicious_same_owner_window_days: 7
+    suspicious_same_owner_threshold: 3
+
+claims:
+  enabled_worlds:
+    - world
+  initial_limit: 2
+  sp_unlock_thresholds:
+    - 50
+    - 125
+    - 250
+    - 450
+    - 600
+    - 800
+    - 1000
+  adjacency_required: true
+  durations:
+    warning_days: 7
+    expire_days: 10
+    abandon_days: 14
+  renew:
+    login_auto_extend: true
+    manual_extend_days: 7
+    manual_extend_cost: 500
+  warnings:
+    notify_chat: true
+    notify_actionbar: true
+    notify_title: false
+    repeat:
+      warning_minutes: 180
+      expired_minutes: 180
+      abandoned_minutes: 1440

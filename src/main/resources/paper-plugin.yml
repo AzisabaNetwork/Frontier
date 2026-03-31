@@ -1,0 +1,25 @@
+name: Frontier
+version: '1.0'
+main: net.azisaba.frontier.FrontierPlugin
+description: Frontier Core
+api-version: '1.21.11'
+bootstrapper: net.azisaba.frontier.FrontierBootstrap
+dependencies:
+  server:
+    PlaceholderAPI:
+      load: BEFORE
+      required: false
+    Vault:
+      load: BEFORE
+      required: false
+    WorldGuard:
+      load: BEFORE
+      required: false
+    WorldEdit:
+      load: BEFORE
+      required: false
+permissions:
+  frontier.user:
+    default: true
+  frontier.admin:
+    default: op
