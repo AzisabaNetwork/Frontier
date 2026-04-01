@@ -28,13 +28,13 @@ import java.util.UUID;
 import java.util.Locale;
 
 public final class FrontierMenuService {
-    public static final String MAIN_TITLE = "Frontier メニュー";
-    public static final String SEASON_TITLE = "Frontier シーズン";
-    public static final String CLAIMS_TITLE = "Frontier 保護の管理";
-    public static final String MISSIONS_TITLE = "Frontier ミッション";
-    public static final String ORDERS_TITLE = "Frontier 注文ボード";
-    public static final String ORDER_CREATE_TITLE = "Frontier 注文作成";
-    public static final String NEWCOMER_TITLE = "Frontier 新規プレイヤー";
+    public static final String MAIN_TITLE = "メニュー";
+    public static final String SEASON_TITLE = "シーズン";
+    public static final String CLAIMS_TITLE = "保護の管理";
+    public static final String MISSIONS_TITLE = "ミッション";
+    public static final String ORDERS_TITLE = "注文ボード";
+    public static final String ORDER_CREATE_TITLE = "注文作成";
+    public static final String NEWCOMER_TITLE = "新規プレイヤー";
 
     private static final DateTimeFormatter DATE_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(ZoneId.of("Asia/Tokyo"));
     private static final long ORDER_ICON_TOGGLE_MILLIS = 3_000L;
