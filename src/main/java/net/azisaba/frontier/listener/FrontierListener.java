@@ -7,6 +7,7 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Sound;
 import org.bukkit.SoundCategory;
+import org.bukkit.Chunk;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -17,6 +18,7 @@ import org.bukkit.event.inventory.CraftItemEvent;
 import org.bukkit.event.player.PlayerFishEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.CraftingInventory;
 import org.bukkit.inventory.ItemStack;
@@ -36,6 +38,7 @@ public final class FrontierListener implements Listener {
             return;
         }
         this.service.touchProfile(event.getPlayer());
+        this.sendClaimStatusActionBar(event.getPlayer());
         event.joinMessage(Component.text("→ ", NamedTextColor.GREEN)
                 .append(Component.text(event.getPlayer().getName(), NamedTextColor.WHITE).decorate(TextDecoration.BOLD))
                 .append(Component.text(" さんがログインしました", NamedTextColor.GRAY)));
@@ -44,6 +47,19 @@ public final class FrontierListener implements Listener {
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
         event.quitMessage(null);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onMove(PlayerMoveEvent event) {
+        if (event.getTo() == null || this.service.getActiveSeason().isEmpty()) {
+            return;
+        }
+        if (event.getFrom().getChunk().getX() == event.getTo().getChunk().getX()
+                && event.getFrom().getChunk().getZ() == event.getTo().getChunk().getZ()
+                && event.getFrom().getWorld().equals(event.getTo().getWorld())) {
+            return;
+        }
+        this.sendClaimStatusActionBar(event.getPlayer(), event.getTo().getChunk());
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -162,6 +178,28 @@ public final class FrontierListener implements Listener {
     private void notifyMissionCompleted(Player player, String title) {
         this.messages.send(player, "mission.completed", java.util.Map.of("prefix", this.messages.get("prefix"), "title", title));
         player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, SoundCategory.MASTER, 0.8f, 1.15f);
+    }
+
+    private void sendClaimStatusActionBar(Player player) {
+        this.sendClaimStatusActionBar(player, player.getLocation().getChunk());
+    }
+
+    private void sendClaimStatusActionBar(Player player, Chunk chunk) {
+        this.service.getClaimAt(chunk)
+                .ifPresentOrElse(
+                        claim -> {
+                            String key;
+                            if (this.service.isClaimOwner(player, claim)) {
+                                key = "claim.location_own_actionbar";
+                            } else if (this.service.isSharedClaimMember(player, claim)) {
+                                key = "claim.location_shared_actionbar";
+                            } else {
+                                key = "claim.location_other_actionbar";
+                            }
+                            player.sendActionBar(this.messages.get(key, java.util.Map.of("owner", claim.ownerName())));
+                        },
+                        () -> player.sendActionBar(this.messages.get("claim.location_empty_actionbar"))
+                );
     }
 
     private static String displayPhase(net.azisaba.frontier.domain.SeasonPhase phase) {

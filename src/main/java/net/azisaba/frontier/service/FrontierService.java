@@ -691,6 +691,14 @@ public final class FrontierService {
                 || this.claimProtection.canEdit(claim.get(), player.getUniqueId());
     }
 
+    public boolean isClaimOwner(Player player, ClaimRecord claim) {
+        return claim.ownerUuid().equals(player.getUniqueId()) || this.claimProtection.isOwner(claim, player.getUniqueId());
+    }
+
+    public boolean isSharedClaimMember(Player player, ClaimRecord claim) {
+        return !this.isClaimOwner(player, claim) && this.claimProtection.canEdit(claim, player.getUniqueId());
+    }
+
     static ClaimState nextClaimState(ClaimRecord claim, Instant now, long warningDays, long expireDays, long abandonDays) {
         if (claim.state() == ClaimState.FROZEN || claim.state() == ClaimState.ABANDONED) {
             return claim.state();
