@@ -7,5 +7,6 @@ mysql:
   database: frontier
   username: frontier
   password: change-me
+  use_ssl: false
   pool:
     maximum_pool_size: 10

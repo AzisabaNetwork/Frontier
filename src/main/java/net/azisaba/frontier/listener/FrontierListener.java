@@ -49,6 +49,11 @@ public final class FrontierListener implements Listener {
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onBreak(BlockBreakEvent event) {
         Player player = event.getPlayer();
+        if (!this.service.isGameplayEnabled() && !this.service.hasPhaseOverride(player)) {
+            event.setCancelled(true);
+            this.messages.send(player, "error.phase_action_blocked", java.util.Map.of("prefix", this.messages.get("prefix"), "phase", displayPhase(this.service.currentSeasonPhase()), "action", "通常プレイ"));
+            return;
+        }
         if (!this.service.canEdit(player, event.getBlock().getChunk())) {
             event.setCancelled(true);
             this.messages.send(player, "claim.protected", java.util.Map.of("prefix", this.messages.get("prefix")));
@@ -60,6 +65,11 @@ public final class FrontierListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onPlace(BlockPlaceEvent event) {
+        if (!this.service.isGameplayEnabled() && !this.service.hasPhaseOverride(event.getPlayer())) {
+            event.setCancelled(true);
+            this.messages.send(event.getPlayer(), "error.phase_action_blocked", java.util.Map.of("prefix", this.messages.get("prefix"), "phase", displayPhase(this.service.currentSeasonPhase()), "action", "通常プレイ"));
+            return;
+        }
         if (!this.service.canEdit(event.getPlayer(), event.getBlock().getChunk())) {
             event.setCancelled(true);
             this.messages.send(event.getPlayer(), "claim.protected", java.util.Map.of("prefix", this.messages.get("prefix")));
@@ -69,6 +79,11 @@ public final class FrontierListener implements Listener {
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onInteract(PlayerInteractEvent event) {
         if (event.getClickedBlock() == null) {
+            return;
+        }
+        if (!this.service.isGameplayEnabled() && !this.service.hasPhaseOverride(event.getPlayer())) {
+            event.setCancelled(true);
+            this.messages.send(event.getPlayer(), "error.phase_action_blocked", java.util.Map.of("prefix", this.messages.get("prefix"), "phase", displayPhase(this.service.currentSeasonPhase()), "action", "通常プレイ"));
             return;
         }
         if (!this.service.canEdit(event.getPlayer(), event.getClickedBlock().getChunk())) {
@@ -82,6 +97,9 @@ public final class FrontierListener implements Listener {
         if (!(event.getWhoClicked() instanceof Player player)) {
             return;
         }
+        if (!this.service.isGameplayEnabled() && !this.service.hasPhaseOverride(player)) {
+            return;
+        }
         ItemStack result = event.getRecipe().getResult();
         long craftedAmount = craftedAmount(event, player, result);
         this.service.recordCraftProgress(player, result.getType(), craftedAmount)
@@ -91,6 +109,9 @@ public final class FrontierListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onFish(PlayerFishEvent event) {
         if (event.getState() != PlayerFishEvent.State.CAUGHT_FISH || !(event.getCaught() instanceof org.bukkit.entity.Item item)) {
+            return;
+        }
+        if (!this.service.isGameplayEnabled() && !this.service.hasPhaseOverride(event.getPlayer())) {
             return;
         }
         this.service.recordFishProgress(event.getPlayer(), item.getItemStack().getType(), item.getItemStack().getAmount())
@@ -141,5 +162,15 @@ public final class FrontierListener implements Listener {
     private void notifyMissionCompleted(Player player, String title) {
         this.messages.send(player, "mission.completed", java.util.Map.of("prefix", this.messages.get("prefix"), "title", title));
         player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, SoundCategory.MASTER, 0.8f, 1.15f);
+    }
+
+    private static String displayPhase(net.azisaba.frontier.domain.SeasonPhase phase) {
+        return switch (phase) {
+            case PRESEASON -> "プレシーズン";
+            case OPENING -> "オープニング";
+            case ACTIVE -> "進行中";
+            case FINALE -> "フィナーレ";
+            case ARCHIVED -> "アーカイブ";
+        };
     }
 }

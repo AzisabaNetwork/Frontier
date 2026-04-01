@@ -12,6 +12,7 @@ public record DatabaseSettings(
         String database,
         String username,
         String password,
+        boolean useSsl,
         int maximumPoolSize
 ) {
     public static DatabaseSettings load(JavaPlugin plugin) {
@@ -25,6 +26,7 @@ public record DatabaseSettings(
                 yaml.getString("mysql.database", "frontier"),
                 yaml.getString("mysql.username", "frontier"),
                 yaml.getString("mysql.password", ""),
+                yaml.getBoolean("mysql.use_ssl", false),
                 yaml.getInt("mysql.pool.maximum_pool_size", 10)
         );
     }
@@ -34,14 +36,15 @@ public record DatabaseSettings(
     }
 
     public DatabaseSettings asMySql() {
-        return new DatabaseSettings("mysql", this.host, this.port, this.database, this.username, this.password, this.maximumPoolSize);
+        return new DatabaseSettings("mysql", this.host, this.port, this.database, this.username, this.password, this.useSsl, this.maximumPoolSize);
     }
 
     public String jdbcUrl() {
-        return "jdbc:mysql://%s:%d/%s?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=utf8".formatted(
+        return "jdbc:mysql://%s:%d/%s?useSSL=%s&allowPublicKeyRetrieval=true&characterEncoding=utf8".formatted(
                 this.host,
                 this.port,
-                this.database
+                this.database,
+                this.useSsl
         );
     }
 }

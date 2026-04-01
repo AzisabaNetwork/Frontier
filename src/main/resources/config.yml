@@ -8,7 +8,13 @@ season:
   active_world: world
   daily_rotation_time: "00:00"
   weekly_rotation_time: "00:00"
+  opening:
+    claim_limit_cap: 2
+    max_open_player_orders: 2
+    max_order_amount: 256
+    max_unit_price: 10000
   finale:
+    block_new_claims: true
     block_new_player_orders: true
     block_claim_manual_renew: true
     block_claim_auto_renew: true

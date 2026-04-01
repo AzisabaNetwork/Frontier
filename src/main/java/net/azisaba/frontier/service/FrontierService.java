@@ -67,6 +67,18 @@ public final class FrontierService {
         return this.claimProtection == null ? "unconfigured" : this.claimProtection.mode();
     }
 
+    public boolean hasPhaseOverride(Player player) {
+        return player.hasPermission("frontier.bypass") || player.hasPermission("frontier.admin");
+    }
+
+    public SeasonPhase currentSeasonPhase() {
+        return this.getActiveSeason().map(SeasonRecord::phase).orElse(SeasonPhase.PRESEASON);
+    }
+
+    public boolean isGameplayEnabled() {
+        return this.getActiveSeason().map(this::isGameplayEnabled).orElse(false);
+    }
+
     public void save() {
         this.repositories.flush();
     }
@@ -197,6 +209,7 @@ public final class FrontierService {
     public ClaimRecord createClaim(Player player) {
         SeasonRecord season = this.getRequiredSeason();
         this.assertSeasonEditable(season);
+        this.assertClaimCreateAllowed(season, player);
         Chunk chunk = player.getLocation().getChunk();
         if (!this.isClaimsWorldEnabled(chunk.getWorld())) {
             throw fail("error.claims_disabled_world", "world", chunk.getWorld().getName());
@@ -241,7 +254,7 @@ public final class FrontierService {
     public ClaimRecord renewClaim(Player player, long claimId) {
         SeasonRecord season = this.getRequiredSeason();
         this.assertSeasonEditable(season);
-        this.assertClaimRenewAllowed(season);
+        this.assertClaimRenewAllowed(season, player);
         ClaimRecord claim = this.getManageableClaim(player.getUniqueId(), claimId);
         PlayerProfileRecord profile = this.getProfile(player.getUniqueId());
         long cost = this.plugin.getConfig().getLong("claims.renew.manual_extend_cost", 500L);
@@ -257,6 +270,7 @@ public final class FrontierService {
     }
 
     public ClaimRecord releaseClaim(Player player, long claimId) {
+        this.assertGameplayActionAllowed(this.getRequiredSeason(), "保護の解放", player);
         ClaimRecord claim = this.getManageableClaim(player.getUniqueId(), claimId).withState(ClaimState.ABANDONED);
         this.saveClaimRecord(claim);
         this.claimProtection.releaseClaimRegion(claim);
@@ -276,6 +290,7 @@ public final class FrontierService {
     }
 
     public ClaimRecord trustClaimMember(Player player, long claimId, String targetName) {
+        this.assertGameplayActionAllowed(this.getRequiredSeason(), "保護の共有設定", player);
         ClaimRecord claim = this.getManageableClaim(player.getUniqueId(), claimId);
         this.assertClaimSharingSupported();
         ResolvedPlayer target = this.resolvePlayer(targetName);
@@ -286,6 +301,7 @@ public final class FrontierService {
     }
 
     public ClaimRecord untrustClaimMember(Player player, long claimId, String targetName) {
+        this.assertGameplayActionAllowed(this.getRequiredSeason(), "保護の共有設定", player);
         ClaimRecord claim = this.getManageableClaim(player.getUniqueId(), claimId);
         this.assertClaimSharingSupported();
         ResolvedPlayer target = this.resolvePlayer(targetName);
@@ -296,6 +312,7 @@ public final class FrontierService {
     }
 
     public ClaimRecord addClaimOwner(Player player, long claimId, String targetName) {
+        this.assertGameplayActionAllowed(this.getRequiredSeason(), "保護の共有設定", player);
         ClaimRecord claim = this.getManageableClaim(player.getUniqueId(), claimId);
         this.assertClaimSharingSupported();
         ResolvedPlayer target = this.resolvePlayer(targetName);
@@ -306,6 +323,7 @@ public final class FrontierService {
     }
 
     public ClaimRecord removeClaimOwner(Player player, long claimId, String targetName) {
+        this.assertGameplayActionAllowed(this.getRequiredSeason(), "保護の共有設定", player);
         ClaimRecord claim = this.getManageableClaim(player.getUniqueId(), claimId);
         this.assertClaimSharingSupported();
         ResolvedPlayer target = this.resolvePlayer(targetName);
@@ -358,7 +376,7 @@ public final class FrontierService {
 
     private List<String> recordMissionProgress(Player player, List<String> targetKeys, long amount) {
         SeasonRecord season = this.getRequiredSeason();
-        if (season.phase() == SeasonPhase.ARCHIVED) {
+        if (!this.isMissionProgressEnabled(season)) {
             return List.of();
         }
         List<String> completed = new ArrayList<>();
@@ -385,7 +403,9 @@ public final class FrontierService {
     }
 
     public void ensureMissions(SeasonRecord season) {
-        this.reconcileMissionRotations(season);
+        if (this.isMissionRotationEnabled(season)) {
+            this.reconcileMissionRotations(season);
+        }
     }
 
     public OrderRecord createServerOrder(String itemKey, long amount, long unitPrice, int hours) {
@@ -398,9 +418,7 @@ public final class FrontierService {
     public OrderRecord createPlayerOrder(Player player, OrderType type, String itemKey, long amount, long unitPrice, int hours) {
         SeasonRecord season = this.getRequiredSeason();
         this.assertSeasonEditable(season);
-        if (season.phase() == SeasonPhase.FINALE && this.plugin.getConfig().getBoolean("season.finale.block_new_player_orders", true)) {
-            throw fail("error.orders_disabled_finale");
-        }
+        this.assertPlayerOrderCreateAllowed(season, amount, unitPrice, player);
         this.validateOrderParameters(amount, unitPrice, hours);
         long fee = this.orderFee(player.getUniqueId());
         long total = amount * unitPrice;
@@ -430,6 +448,7 @@ public final class FrontierService {
     }
 
     public OrderRecord reserveOrder(Player player, long orderId) {
+        this.assertOrderFulfillmentAllowed(this.getRequiredSeason(), player);
         OrderRecord order = this.getReservableOrder(orderId, player.getUniqueId());
         if (Objects.equals(order.ownerUuid(), player.getUniqueId())) {
             throw fail("error.cannot_fill_own_order");
@@ -445,6 +464,7 @@ public final class FrontierService {
     }
 
     public OrderRecord deliverOrder(Player player, long orderId) {
+        this.assertOrderFulfillmentAllowed(this.getRequiredSeason(), player);
         OrderRecord order = this.getDeliverableOrder(orderId, player.getUniqueId());
         Material material = parseMaterial(order.itemKey());
         if (order.orderType() == OrderType.BUY_ITEM) {
@@ -511,6 +531,7 @@ public final class FrontierService {
     }
 
     public PlayerProfileRecord claimStarter(Player player) {
+        this.assertNewcomerSystemsAllowed(this.getRequiredSeason(), "スターター特典の受け取り", player);
         PlayerProfileRecord profile = this.getProfile(player.getUniqueId());
         if (!this.isNewcomer(profile)) {
             throw fail("error.newcomer_only");
@@ -530,6 +551,7 @@ public final class FrontierService {
     }
 
     public void supportNewcomer(Player helper, Player target) {
+        this.assertNewcomerSystemsAllowed(this.getRequiredSeason(), "新規プレイヤー支援", helper);
         if (helper.getUniqueId().equals(target.getUniqueId())) {
             throw fail("error.newcomer_support_self");
         }
@@ -566,6 +588,7 @@ public final class FrontierService {
     }
 
     public ClaimRecord likeCurrentClaim(Player player) {
+        this.assertLikeAllowed(this.getRequiredSeason(), player);
         ClaimRecord claim = this.getClaimAt(player.getLocation().getChunk()).orElseThrow(() -> fail("error.like_no_claim"));
         if (claim.ownerUuid().equals(player.getUniqueId())) {
             throw fail("error.like_own_claim");
@@ -616,11 +639,21 @@ public final class FrontierService {
 
     public void tickAutomation() {
         this.reconcileSeasonSchedule();
-        this.getActiveSeason().ifPresent(this::reconcileMissionRotations);
-        this.tickClaims();
+        this.getActiveSeason().ifPresent(season -> {
+            if (this.isMissionRotationEnabled(season)) {
+                this.reconcileMissionRotations(season);
+            }
+            if (this.isClaimExpiryEnabled(season)) {
+                this.tickClaims();
+            }
+        });
     }
 
     public void tickClaims() {
+        SeasonRecord season = this.getRequiredSeason();
+        if (!this.isClaimExpiryEnabled(season)) {
+            return;
+        }
         Instant now = this.now();
         boolean changed = false;
         for (ClaimRecord claim : new ArrayList<>(this.repositories.claims())) {
@@ -646,8 +679,11 @@ public final class FrontierService {
     }
 
     public boolean canEdit(Player player, Chunk chunk) {
-        if (player.hasPermission("frontier.bypass")) {
+        if (this.hasPhaseOverride(player)) {
             return true;
+        }
+        if (!this.isGameplayEnabled()) {
+            return false;
         }
         Optional<ClaimRecord> claim = this.getClaimAt(chunk);
         return claim.isEmpty()
@@ -784,6 +820,9 @@ public final class FrontierService {
             return;
         }
         SeasonRecord season = this.getRequiredSeason();
+        if (!this.isClaimExpiryEnabled(season)) {
+            return;
+        }
         if (season.phase() == SeasonPhase.FINALE && this.plugin.getConfig().getBoolean("season.finale.block_claim_auto_renew", true)) {
             return;
         }
@@ -1001,6 +1040,10 @@ public final class FrontierService {
                 limit++;
             }
         }
+        if (this.currentSeasonPhase() == SeasonPhase.OPENING) {
+            int cap = this.plugin.getConfig().getInt("season.opening.claim_limit_cap", limit);
+            limit = Math.min(limit, Math.max(1, cap));
+        }
         return limit;
     }
 
@@ -1055,10 +1098,97 @@ public final class FrontierService {
         }
     }
 
-    private void assertClaimRenewAllowed(SeasonRecord season) {
-        if (season.phase() == SeasonPhase.FINALE && this.plugin.getConfig().getBoolean("season.finale.block_claim_manual_renew", true)) {
+    private boolean isGameplayEnabled(SeasonRecord season) {
+        return switch (season.phase()) {
+            case OPENING, ACTIVE, FINALE -> true;
+            case PRESEASON, ARCHIVED -> false;
+        };
+    }
+
+    private boolean isMissionProgressEnabled(SeasonRecord season) {
+        return this.isGameplayEnabled(season);
+    }
+
+    private boolean isMissionRotationEnabled(SeasonRecord season) {
+        return season.phase() != SeasonPhase.PRESEASON && season.phase() != SeasonPhase.ARCHIVED;
+    }
+
+    private boolean isClaimExpiryEnabled(SeasonRecord season) {
+        return season.phase() != SeasonPhase.PRESEASON && season.phase() != SeasonPhase.ARCHIVED;
+    }
+
+    private void assertGameplayActionAllowed(SeasonRecord season, String action, Player actor) {
+        if (!this.isGameplayEnabled(season) && !this.hasPhaseOverride(actor)) {
+            throw fail("error.phase_action_blocked", "phase", this.displaySeasonPhase(season.phase()), "action", action);
+        }
+    }
+
+    private void assertClaimCreateAllowed(SeasonRecord season, Player actor) {
+        if (season.phase() == SeasonPhase.PRESEASON || season.phase() == SeasonPhase.ARCHIVED) {
+            this.assertGameplayActionAllowed(season, "保護の作成", actor);
+        }
+        if (season.phase() == SeasonPhase.FINALE && this.plugin.getConfig().getBoolean("season.finale.block_new_claims", true) && !this.hasPhaseOverride(actor)) {
+            throw fail("error.claim_create_blocked_finale");
+        }
+    }
+
+    private void assertClaimRenewAllowed(SeasonRecord season, Player actor) {
+        if (season.phase() == SeasonPhase.PRESEASON || season.phase() == SeasonPhase.ARCHIVED) {
+            this.assertGameplayActionAllowed(season, "保護の更新", actor);
+        }
+        if (season.phase() == SeasonPhase.FINALE && this.plugin.getConfig().getBoolean("season.finale.block_claim_manual_renew", true) && !this.hasPhaseOverride(actor)) {
             throw fail("error.claim_renew_blocked_finale");
         }
+    }
+
+    private void assertOrderFulfillmentAllowed(SeasonRecord season, Player actor) {
+        this.assertGameplayActionAllowed(season, "注文の処理", actor);
+    }
+
+    private void assertPlayerOrderCreateAllowed(SeasonRecord season, long amount, long unitPrice, Player actor) {
+        this.assertGameplayActionAllowed(season, "注文の作成", actor);
+        if (this.hasPhaseOverride(actor)) {
+            return;
+        }
+        if (season.phase() == SeasonPhase.FINALE && this.plugin.getConfig().getBoolean("season.finale.block_new_player_orders", true)) {
+            throw fail("error.orders_disabled_finale");
+        }
+        if (season.phase() == SeasonPhase.OPENING) {
+            long openOrders = this.repositories.orders().stream()
+                    .filter(order -> actor.getUniqueId().equals(order.ownerUuid()))
+                    .filter(order -> order.status() == OrderStatus.OPEN || order.status() == OrderStatus.RESERVED)
+                    .count();
+            long maxOpen = this.plugin.getConfig().getLong("season.opening.max_open_player_orders", 2L);
+            if (openOrders >= maxOpen) {
+                throw fail("error.orders_disabled_opening_limit");
+            }
+            long maxAmount = this.plugin.getConfig().getLong("season.opening.max_order_amount", 256L);
+            if (amount > maxAmount) {
+                throw fail("error.orders_disabled_opening_amount", "max", Long.toString(maxAmount));
+            }
+            long maxUnitPrice = this.plugin.getConfig().getLong("season.opening.max_unit_price", 10000L);
+            if (unitPrice > maxUnitPrice) {
+                throw fail("error.orders_disabled_opening_price", "max", Long.toString(maxUnitPrice));
+            }
+        }
+    }
+
+    private void assertNewcomerSystemsAllowed(SeasonRecord season, String action, Player actor) {
+        this.assertGameplayActionAllowed(season, action, actor);
+    }
+
+    private void assertLikeAllowed(SeasonRecord season, Player actor) {
+        this.assertGameplayActionAllowed(season, "高評価", actor);
+    }
+
+    private String displaySeasonPhase(SeasonPhase phase) {
+        return switch (phase) {
+            case PRESEASON -> "プレシーズン";
+            case OPENING -> "オープニング";
+            case ACTIVE -> "進行中";
+            case FINALE -> "フィナーレ";
+            case ARCHIVED -> "アーカイブ";
+        };
     }
 
     private Instant now() {

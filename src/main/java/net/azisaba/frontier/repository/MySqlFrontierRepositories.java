@@ -456,11 +456,15 @@ public final class MySqlFrontierRepositories implements FrontierRepositories, Au
     }
 
     private void migrateSchema() {
+        if (!this.tableExists("frontier_settings")) {
+            this.applyMigration0To1();
+            this.setSetting("schema_version", "1");
+        }
         String version = this.getSetting("schema_version");
         if (version == null) {
             this.applyMigration0To1();
-            this.setSetting("schema_version", Integer.toString(CURRENT_SCHEMA_VERSION));
-            return;
+            version = "1";
+            this.setSetting("schema_version", version);
         }
         int existing = Integer.parseInt(version);
         if (existing > CURRENT_SCHEMA_VERSION) {
@@ -474,6 +478,21 @@ public final class MySqlFrontierRepositories implements FrontierRepositories, Au
             }
             existing++;
             this.setSetting("schema_version", Integer.toString(existing));
+        }
+        if (existing >= 2) {
+            // Self-heal installs that were incorrectly marked as schema v2 before the v1->v2 ALTERs ran.
+            this.applyMigration1To2();
+        }
+    }
+
+    private boolean tableExists(String tableName) {
+        try (Connection connection = this.dataSource.getConnection()) {
+            DatabaseMetaData metaData = connection.getMetaData();
+            try (ResultSet rs = metaData.getTables(connection.getCatalog(), null, tableName, new String[]{"TABLE"})) {
+                return rs.next();
+            }
+        } catch (SQLException e) {
+            throw new IllegalStateException("MySQL query failed", e);
         }
     }
 

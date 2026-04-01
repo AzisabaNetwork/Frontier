@@ -57,6 +57,10 @@ public final class FrontierMenuService {
         inventory.setItem(14, item(Material.BARREL, "&6注文ボード", List.of("&7プレイヤー注文を確認します", "&8予約・納品・新規作成")));
         inventory.setItem(15, item(Material.EMERALD, "&2所持ポイント", List.of("&fCoins: &6" + profile.coins(), "&fSP: &b" + profile.seasonPoints())));
         inventory.setItem(16, item(Material.SUNFLOWER, "&d新規プレイヤー支援", List.of("&7" + this.service.newcomerStatus(player), "&8スターター受取・支援実行")));
+        ItemStack phaseBanner = phaseBanner();
+        if (phaseBanner != null) {
+            inventory.setItem(4, phaseBanner);
+        }
         player.openInventory(inventory);
     }
 
@@ -337,6 +341,16 @@ public final class FrontierMenuService {
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         stack.setItemMeta(meta);
         return stack;
+    }
+
+    private ItemStack phaseBanner() {
+        return switch (this.service.currentSeasonPhase()) {
+            case PRESEASON -> item(Material.YELLOW_STAINED_GLASS_PANE, "&e準備中", List.of("&7現在はプレシーズンです", "&8通常プレイ系の機能は停止中"));
+            case OPENING -> item(Material.LIME_STAINED_GLASS_PANE, "&a開幕期間", List.of("&7現在はオープニングです", "&8一部機能に制限があります"));
+            case ACTIVE -> null;
+            case FINALE -> item(Material.ORANGE_STAINED_GLASS_PANE, "&6終盤期間", List.of("&7現在はフィナーレです", "&8一部の新規要素は制限されています"));
+            case ARCHIVED -> item(Material.GRAY_STAINED_GLASS_PANE, "&7アーカイブ済み", List.of("&7このシーズンは終了しています", "&8進捗系の機能は停止中"));
+        };
     }
 
     private void renderOrdersInventory(Player player, Inventory inventory) {
