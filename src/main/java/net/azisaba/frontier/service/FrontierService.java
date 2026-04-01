@@ -197,6 +197,13 @@ public final class FrontierService {
                 .toList();
     }
 
+    public List<ClaimRecord> allClaims() {
+        return this.repositories.claims().stream()
+                .filter(claim -> claim.state() != ClaimState.ABANDONED)
+                .sorted(Comparator.comparing(ClaimRecord::createdAt))
+                .toList();
+    }
+
     public Optional<ClaimRecord> getClaimAt(Chunk chunk) {
         this.ensureClaimChunkCacheLoaded();
         ClaimRecord claim = this.claimByChunkCache.get(chunkKey(chunk.getWorld().getName(), chunk.getX(), chunk.getZ()));
@@ -216,6 +223,9 @@ public final class FrontierService {
         }
         if (this.getClaimAt(chunk).isPresent()) {
             throw fail("error.chunk_already_claimed");
+        }
+        if (this.claimProtection.hasConflictingRegion(chunk.getWorld().getName(), chunk.getX(), chunk.getZ())) {
+            throw fail("error.chunk_conflicts_worldguard");
         }
         List<ClaimRecord> owned = this.getClaims(player.getUniqueId());
         int limit = this.claimLimit(player.getUniqueId());
@@ -286,6 +296,14 @@ public final class FrontierService {
 
     public List<String> claimMembers(Player player, long claimId) {
         ClaimRecord claim = this.getAccessibleClaim(player.getUniqueId(), claimId);
+        return this.claimProtection.members(claim);
+    }
+
+    public List<String> claimOwners(ClaimRecord claim) {
+        return this.claimProtection.owners(claim);
+    }
+
+    public List<String> claimMembers(ClaimRecord claim) {
         return this.claimProtection.members(claim);
     }
 

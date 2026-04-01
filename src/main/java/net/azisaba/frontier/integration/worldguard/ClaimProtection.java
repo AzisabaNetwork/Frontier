@@ -12,6 +12,8 @@ public interface ClaimProtection {
 
     void freezeClaimRegion(ClaimRecord claim);
 
+    boolean hasConflictingRegion(String worldName, int chunkX, int chunkZ);
+
     boolean isOwner(ClaimRecord claim, UUID playerId);
 
     boolean canEdit(ClaimRecord claim, UUID playerId);

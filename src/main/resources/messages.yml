@@ -14,6 +14,7 @@ error:
   season_archived: "{prefix}&cこのシーズンはアーカイブ済みです。"
   claims_disabled_world: "{prefix}&cワールド {world} では保護を作成できません。"
   chunk_already_claimed: "{prefix}&cこのチャンクは既に保護されています。"
+  chunk_conflicts_worldguard: "{prefix}&cこのチャンクには既に WorldGuard の保護があるため、Frontier の保護を作成できません。"
   claim_limit_reached: "{prefix}&c保護上限に達しています: {limit}"
   claim_adjacency_required: "{prefix}&c新しい保護は既存の保護に隣接している必要があります。"
   claim_not_found: "{prefix}&c保護が見つかりません。"

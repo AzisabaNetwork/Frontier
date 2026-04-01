@@ -77,6 +77,30 @@ public final class WorldGuardClaimProtection implements ClaimProtection {
     }
 
     @Override
+    public boolean hasConflictingRegion(String worldName, int chunkX, int chunkZ) {
+        RegionManager manager = this.regionManager(worldName);
+        if (manager == null) {
+            return false;
+        }
+        int minX = chunkX << 4;
+        int minZ = chunkZ << 4;
+        int maxX = minX + 15;
+        int maxZ = minZ + 15;
+        ProtectedCuboidRegion probe = new ProtectedCuboidRegion(
+                "__frontier_probe__",
+                BlockVector3.at(minX, -64, minZ),
+                BlockVector3.at(maxX, 319, maxZ)
+        );
+        for (ProtectedRegion region : probe.getIntersectingRegions(manager.getRegions().values())) {
+            if ("__global__".equalsIgnoreCase(region.getId())) {
+                continue;
+            }
+            return true;
+        }
+        return false;
+    }
+
+    @Override
     public boolean isOwner(ClaimRecord claim, UUID playerId) {
         ProtectedRegion region = this.region(claim);
         if (region == null) {

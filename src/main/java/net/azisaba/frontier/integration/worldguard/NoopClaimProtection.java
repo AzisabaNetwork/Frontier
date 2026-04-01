@@ -19,6 +19,11 @@ public final class NoopClaimProtection implements ClaimProtection {
     }
 
     @Override
+    public boolean hasConflictingRegion(String worldName, int chunkX, int chunkZ) {
+        return false;
+    }
+
+    @Override
     public boolean isOwner(ClaimRecord claim, UUID playerId) {
         return claim.ownerUuid().equals(playerId);
     }

@@ -1,12 +1,12 @@
 package net.azisaba.frontier;
 
-import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import net.azisaba.frontier.audit.AuditService;
 import net.azisaba.frontier.command.AliasedFrontierCommand;
 import net.azisaba.frontier.command.FrontierCommand;
 import net.azisaba.frontier.domain.ClaimNotification;
 import net.azisaba.frontier.gui.FrontierMenuService;
+import net.azisaba.frontier.integration.bluemap.BlueMapClaimVisualizer;
 import net.azisaba.frontier.integration.economy.EconomyProvider;
 import net.azisaba.frontier.integration.placeholder.FrontierPlaceholderExpansion;
 import net.azisaba.frontier.integration.worldguard.ClaimProtectionProvider;
@@ -18,7 +18,6 @@ import net.azisaba.frontier.repository.MySqlFrontierRepositories;
 import net.azisaba.frontier.repository.RepositoryFactory;
 import net.azisaba.frontier.service.FrontierService;
 import net.azisaba.frontier.storage.DatabaseSettings;
-import net.azisaba.frontier.storage.FrontierDataStore;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -34,6 +33,7 @@ public class FrontierPlugin extends JavaPlugin {
     private FrontierRepositories repositories;
     private DatabaseSettings databaseSettings;
     private FrontierMenuService frontierMenuService;
+    private BlueMapClaimVisualizer blueMapClaimVisualizer;
 
     @Override
     public void onEnable() {
@@ -60,11 +60,20 @@ public class FrontierPlugin extends JavaPlugin {
                 this.auditService
         );
         this.frontierMenuService = new FrontierMenuService(this.frontierService, this.messageService);
+        if (Bukkit.getPluginManager().getPlugin("BlueMap") != null) {
+            this.blueMapClaimVisualizer = new BlueMapClaimVisualizer(this, this.frontierService);
+            this.blueMapClaimVisualizer.start();
+        }
         Bukkit.getPluginManager().registerEvents(new FrontierListener(this.frontierService, this.messageService), this);
         Bukkit.getPluginManager().registerEvents(new FrontierMenuListener(this.frontierMenuService, this.messageService), this);
         this.tickAutomationAndNotify();
         Bukkit.getScheduler().runTaskTimer(this, this::tickAutomationAndNotify, 20L * 60L, 20L * 60L);
         Bukkit.getScheduler().runTaskTimer(this, () -> this.frontierMenuService.refreshOpenOrderMenus(), 60L, 60L);
+        Bukkit.getScheduler().runTaskTimer(this, () -> {
+            if (this.blueMapClaimVisualizer != null) {
+                this.blueMapClaimVisualizer.refresh();
+            }
+        }, 20L * 10L, 20L * 10L);
         getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, commands -> {
             FrontierCommand frontierCommand = new FrontierCommand(this, this.frontierService, this.messageService);
             commands.registrar().register("frontier", "Frontier main command", java.util.List.of("fr"), frontierCommand);
@@ -82,13 +91,16 @@ public class FrontierPlugin extends JavaPlugin {
         if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
             new FrontierPlaceholderExpansion(this, this.frontierService).register();
         }
-        getLogger().info("Frontier integrations: economy=" + this.frontierService.economyMode() + ", claims=" + this.frontierService.claimProtectionMode());
+        getLogger().info("Frontier integrations: economy=" + this.frontierService.economyMode() + ", claims=" + this.frontierService.claimProtectionMode() + ", bluemap=" + (this.blueMapClaimVisualizer == null ? "disabled" : "enabled"));
     }
 
     @Override
     public void onDisable() {
         if (this.frontierService != null) {
             this.frontierService.save();
+        }
+        if (this.blueMapClaimVisualizer != null) {
+            this.blueMapClaimVisualizer.stop();
         }
         if (this.repositories instanceof MySqlFrontierRepositories mySqlFrontierRepositories) {
             mySqlFrontierRepositories.close();

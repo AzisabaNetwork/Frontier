@@ -6,6 +6,9 @@ api-version: '1.21.11'
 bootstrapper: net.azisaba.frontier.FrontierBootstrap
 dependencies:
   server:
+    TAB-BukkitBridge:
+      load: BEFORE
+      required: true
     PlaceholderAPI:
       load: BEFORE
       required: false
@@ -16,6 +19,9 @@ dependencies:
       load: BEFORE
       required: false
     WorldEdit:
+      load: BEFORE
+      required: false
+    BlueMap:
       load: BEFORE
       required: false
 permissions:

@@ -14,12 +14,15 @@ repositories {
     maven("https://jitpack.io")
     maven("https://repo.codemc.io/repository/maven-public/")
     maven("https://repo.extendedclip.com/content/repositories/placeholderapi/")
+    maven("https://repo.bluecolored.de/releases")
+    maven("https://repo.azisaba.net/repository/maven-public/")
 }
 
 dependencies {
     paperweight.paperDevBundle("1.21.11-R0.1-SNAPSHOT")
     implementation("com.zaxxer:HikariCP:6.3.0")
     implementation("com.mysql:mysql-connector-j:9.3.0")
+    compileOnly("de.bluecolored:bluemap-api:2.7.7")
     compileOnly("com.github.MilkBowl:VaultAPI:1.7.1")
     compileOnly("me.clip:placeholderapi:2.11.6")
     compileOnly("com.sk89q.worldguard:worldguard-bukkit:7.0.13") {
