@@ -19,7 +19,7 @@ public final class VaultEconomyBridge implements FrontierEconomy {
 
     @Override
     public long balance(UUID playerId) {
-        return this.service.getProfile(playerId).coins();
+        return Math.round(this.economy.getBalance(Bukkit.getOfflinePlayer(playerId)));
     }
 
     @Override

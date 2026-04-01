@@ -103,7 +103,7 @@ public final class FrontierCommand implements BasicCommand {
     private void handleBalances(CommandSender sender) {
         Player player = requirePlayer(sender);
         PlayerProfileRecord profile = this.service.getProfile(player.getUniqueId());
-        this.messages.send(sender, "balance.coins", map("prefix", this.messages.get("prefix"), "amount", Long.toString(profile.coins())));
+        this.messages.send(sender, "balance.coins", map("prefix", this.messages.get("prefix"), "amount", Long.toString(this.service.coinBalance(player.getUniqueId()))));
         this.messages.send(sender, "balance.sp", map("prefix", this.messages.get("prefix"), "amount", Long.toString(profile.seasonPoints())));
     }
 

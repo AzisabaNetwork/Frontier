@@ -55,7 +55,7 @@ public final class FrontierMenuService {
         inventory.setItem(11, item(Material.MAP, "&bミッション", List.of("&7進行中のミッション一覧です", "&8進捗と報酬を確認")));
         inventory.setItem(12, item(Material.GRASS_BLOCK, "&a保護の管理", List.of("&7自分の保護を管理します", "&8更新・解放・上限確認")));
         inventory.setItem(14, item(Material.BARREL, "&6注文ボード", List.of("&7プレイヤー注文を確認します", "&8予約・納品・新規作成")));
-        inventory.setItem(15, item(Material.EMERALD, "&2所持ポイント", List.of("&fCoins: &6" + profile.coins(), "&fSP: &b" + profile.seasonPoints())));
+        inventory.setItem(15, item(Material.EMERALD, "&2所持ポイント", List.of("&fCoins: &6" + this.service.coinBalance(player.getUniqueId()), "&fSP: &b" + profile.seasonPoints())));
         inventory.setItem(16, item(Material.SUNFLOWER, "&d新規プレイヤー支援", List.of("&7" + this.service.newcomerStatus(player), "&8スターター受取・支援実行")));
         ItemStack phaseBanner = phaseBanner();
         if (phaseBanner != null) {

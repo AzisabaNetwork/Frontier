@@ -63,7 +63,7 @@ public final class FrontierPlaceholderExpansion extends PlaceholderExpansion {
         }
         PlayerProfileRecord profile = this.service.getProfile(player.getUniqueId());
         if (params.equalsIgnoreCase("player_coins")) {
-            return Long.toString(profile.coins());
+            return Long.toString(this.service.coinBalance(player.getUniqueId()));
         }
         if (params.equalsIgnoreCase("player_sp")) {
             return Long.toString(profile.seasonPoints());

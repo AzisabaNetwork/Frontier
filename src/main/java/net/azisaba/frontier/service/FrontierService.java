@@ -59,6 +59,10 @@ public final class FrontierService {
         this.auditService = auditService;
     }
 
+    public long coinBalance(UUID playerId) {
+        return this.economy == null ? this.getProfile(playerId).coins() : this.economy.balance(playerId);
+    }
+
     public String economyMode() {
         return this.economy == null ? "unconfigured" : this.economy.mode();
     }
@@ -266,9 +270,8 @@ public final class FrontierService {
         this.assertSeasonEditable(season);
         this.assertClaimRenewAllowed(season, player);
         ClaimRecord claim = this.getManageableClaim(player.getUniqueId(), claimId);
-        PlayerProfileRecord profile = this.getProfile(player.getUniqueId());
         long cost = this.plugin.getConfig().getLong("claims.renew.manual_extend_cost", 500L);
-        if (profile.coins() < cost) {
+        if (this.coinBalance(player.getUniqueId()) < cost) {
             throw fail("error.not_enough_coins", "required", Long.toString(cost));
         }
         this.addCoins(player.getUniqueId(), -cost, "claim_renew");
@@ -441,11 +444,11 @@ public final class FrontierService {
         long fee = this.orderFee(player.getUniqueId());
         long total = amount * unitPrice;
         Material material = parseMaterial(itemKey);
-        PlayerProfileRecord profile = this.getProfile(player.getUniqueId());
-        if (type == OrderType.BUY_ITEM && profile.coins() < total + fee) {
+        long coins = this.coinBalance(player.getUniqueId());
+        if (type == OrderType.BUY_ITEM && coins < total + fee) {
             throw fail("error.not_enough_coins", "required", Long.toString(total + fee));
         }
-        if (type == OrderType.SELL_ITEM && profile.coins() < fee) {
+        if (type == OrderType.SELL_ITEM && coins < fee) {
             throw fail("error.not_enough_coins_fee", "required", Long.toString(fee));
         }
         if (type == OrderType.SELL_ITEM && this.countInventory(player, material) < amount) {
@@ -502,8 +505,7 @@ public final class FrontierService {
             }
             this.addCoins(player.getUniqueId(), order.totalPrice(), "order_fill_buy");
         } else {
-            PlayerProfileRecord fulfiller = this.getProfile(player.getUniqueId());
-            if (fulfiller.coins() < order.totalPrice()) {
+            if (this.coinBalance(player.getUniqueId()) < order.totalPrice()) {
                 throw fail("error.not_enough_coins", "required", Long.toString(order.totalPrice()));
             }
             this.addCoins(player.getUniqueId(), -order.totalPrice(), "order_fill_sell");
