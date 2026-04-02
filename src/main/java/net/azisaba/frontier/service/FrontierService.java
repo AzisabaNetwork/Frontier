@@ -302,6 +302,10 @@ public final class FrontierService {
                 .toList();
     }
 
+    public boolean isClaimsWorldEnabled(World world) {
+        return this.plugin.getConfig().getStringList("claims.enabled_worlds").contains(world.getName());
+    }
+
     public Optional<ClaimRecord> getClaimAt(Chunk chunk) {
         this.ensureClaimChunkCacheLoaded();
         ClaimRecord claim = this.claimByChunkCache.get(chunkKey(chunk.getWorld().getName(), chunk.getX(), chunk.getZ()));
@@ -1192,10 +1196,6 @@ public final class FrontierService {
     private Instant newcomerUntil(PlayerProfileRecord profile) {
         long newcomerDays = this.plugin.getConfig().getLong("player.newcomer_days", 7L);
         return profile.joinAt().plus(newcomerDays, ChronoUnit.DAYS);
-    }
-
-    private boolean isClaimsWorldEnabled(World world) {
-        return this.plugin.getConfig().getStringList("claims.enabled_worlds").contains(world.getName());
     }
 
     private long warningDays() {

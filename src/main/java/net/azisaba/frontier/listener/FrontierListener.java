@@ -192,6 +192,10 @@ public final class FrontierListener implements Listener {
     }
 
     private void sendClaimStatusActionBar(Player player, Chunk chunk) {
+        if (!this.service.isClaimsWorldEnabled(chunk.getWorld())) {
+            player.sendActionBar(Component.empty());
+            return;
+        }
         this.service.getClaimAt(chunk)
                 .ifPresentOrElse(
                         claim -> {
