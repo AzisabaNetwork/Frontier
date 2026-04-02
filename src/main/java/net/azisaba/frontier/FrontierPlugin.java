@@ -18,6 +18,7 @@ import net.azisaba.frontier.repository.MySqlFrontierRepositories;
 import net.azisaba.frontier.repository.RepositoryFactory;
 import net.azisaba.frontier.service.FrontierService;
 import net.azisaba.frontier.storage.DatabaseSettings;
+import net.azisaba.frontier.tab.FrontierTabListService;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -34,6 +35,7 @@ public class FrontierPlugin extends JavaPlugin {
     private DatabaseSettings databaseSettings;
     private FrontierMenuService frontierMenuService;
     private BlueMapClaimVisualizer blueMapClaimVisualizer;
+    private FrontierTabListService tabListService;
 
     @Override
     public void onEnable() {
@@ -59,16 +61,22 @@ public class FrontierPlugin extends JavaPlugin {
                 ClaimProtectionProvider.create(),
                 this.auditService
         );
+        this.tabListService = new FrontierTabListService(this, this.frontierService);
         this.frontierMenuService = new FrontierMenuService(this.frontierService, this.messageService);
         if (Bukkit.getPluginManager().getPlugin("BlueMap") != null) {
             this.blueMapClaimVisualizer = new BlueMapClaimVisualizer(this, this.frontierService);
             this.blueMapClaimVisualizer.start();
         }
-        Bukkit.getPluginManager().registerEvents(new FrontierListener(this.frontierService, this.messageService), this);
+        Bukkit.getPluginManager().registerEvents(new FrontierListener(this.frontierService, this.messageService, this.tabListService), this);
         Bukkit.getPluginManager().registerEvents(new FrontierMenuListener(this.frontierMenuService, this.messageService), this);
         this.tickAutomationAndNotify();
         Bukkit.getScheduler().runTaskTimer(this, this::tickAutomationAndNotify, 20L * 60L, 20L * 60L);
         Bukkit.getScheduler().runTaskTimer(this, () -> this.frontierMenuService.refreshOpenOrderMenus(), 60L, 60L);
+        Bukkit.getScheduler().runTaskTimer(this, () -> {
+            if (this.tabListService != null) {
+                this.tabListService.refreshAll();
+            }
+        }, 20L, 20L * 10L);
         Bukkit.getScheduler().runTaskTimer(this, () -> {
             if (this.blueMapClaimVisualizer != null) {
                 this.blueMapClaimVisualizer.refresh();
@@ -98,6 +106,9 @@ public class FrontierPlugin extends JavaPlugin {
     public void onDisable() {
         if (this.frontierService != null) {
             this.frontierService.save();
+        }
+        if (this.tabListService != null) {
+            this.tabListService.clear();
         }
         if (this.blueMapClaimVisualizer != null) {
             this.blueMapClaimVisualizer.stop();

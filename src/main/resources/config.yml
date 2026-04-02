@@ -2,6 +2,10 @@ plugin:
   debug: false
   timezone: Asia/Tokyo
 
+tab_list_sp:
+  enabled: false
+  title: "&bSP"
+
 season:
   auto_rotate_daily: true
   auto_rotate_weekly: true

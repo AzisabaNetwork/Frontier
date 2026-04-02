@@ -2,6 +2,7 @@ package net.azisaba.frontier.listener;
 
 import net.azisaba.frontier.message.MessageService;
 import net.azisaba.frontier.service.FrontierService;
+import net.azisaba.frontier.tab.FrontierTabListService;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -26,10 +27,12 @@ import org.bukkit.inventory.ItemStack;
 public final class FrontierListener implements Listener {
     private final FrontierService service;
     private final MessageService messages;
+    private final FrontierTabListService tabListService;
 
-    public FrontierListener(FrontierService service, MessageService messages) {
+    public FrontierListener(FrontierService service, MessageService messages, FrontierTabListService tabListService) {
         this.service = service;
         this.messages = messages;
+        this.tabListService = tabListService;
     }
 
     @EventHandler
@@ -38,6 +41,7 @@ public final class FrontierListener implements Listener {
             return;
         }
         this.service.touchProfile(event.getPlayer());
+        this.tabListService.refreshPlayer(event.getPlayer());
         this.sendClaimStatusActionBar(event.getPlayer());
         event.joinMessage(Component.text("→ ", NamedTextColor.GREEN)
                 .append(Component.text(event.getPlayer().getName(), NamedTextColor.WHITE).decorate(TextDecoration.BOLD))
@@ -46,6 +50,7 @@ public final class FrontierListener implements Listener {
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
+        this.tabListService.removePlayer(event.getPlayer());
         event.quitMessage(null);
     }
 
