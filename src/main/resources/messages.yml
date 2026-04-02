@@ -130,6 +130,19 @@ newcomer:
 like:
   added: "{prefix}&a{owner} の保護を高評価しました。"
 
+tutorial:
+  disabled: "{prefix}&7チュートリアルは無効です。"
+  status: "{prefix}&eチュートリアル進行: {current}/{total}"
+  step_title: "&6現在のステップ: &f{title}"
+  step_description: "&7{description}"
+  step_objective: "&8目標: {objective}"
+  step_completed: "{prefix}&aチュートリアル達成: {title}"
+  reward: "{prefix}&7報酬: &6{coins}コイン &7/ &b{sp}SP"
+  next_step: "{prefix}&e次のステップ: {title}"
+  completed_all: "{prefix}&aチュートリアルをすべて完了しました。"
+  restarted: "{prefix}&eチュートリアルを最初からやり直します。"
+  prompt: "{prefix}&eチュートリアル進行中: {title}"
+
 archive:
   exported: "{prefix}&aアーカイブを出力しました: {file}"
 
@@ -155,6 +168,7 @@ help:
   menu: "&7/frontier menu &8| &7/menu"
   newcomer: "&7/frontier newcomer status|starter|support <player> &8| &7/newcomer ... &8(新規プレイヤー支援)"
   like: "&7/frontier like &8| &7/like &8(保護を高評価)"
+  tutorial: "&7/frontier tutorial status|repeat|restart &8| &7/tutorial"
   admin_season: "&3/frontier admin season create|setphase"
   admin_economy: "&3/frontier admin economy <coins|sp> <player> <amount> &8(コイン/SP調整)"
   admin_order: "&3/frontier admin order server <item> <amount> <unitPrice> <hours> &8(サーバー注文)"
@@ -171,6 +185,7 @@ usage:
   orders_accept: "{prefix}&7/frontier orders accept <id>"
   orders_deliver: "{prefix}&7/frontier orders deliver <id>"
   newcomer_support: "{prefix}&7/frontier newcomer support <player> &8(新規プレイヤーを支援)"
+  tutorial: "{prefix}&7/frontier tutorial [status|repeat|restart]"
   admin_debug: "{prefix}&7/frontier admin debug <player|claim|order|suspicious> ... &8(claim=保護)"
   admin_debug_player: "{prefix}&7/frontier admin debug player <player>"
   admin_debug_order: "{prefix}&7/frontier admin debug order <id>"

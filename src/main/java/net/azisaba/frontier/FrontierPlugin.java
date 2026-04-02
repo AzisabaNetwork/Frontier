@@ -95,6 +95,7 @@ public class FrontierPlugin extends JavaPlugin {
             commands.registrar().register("menu", "Alias for /frontier menu", java.util.List.of(), new AliasedFrontierCommand(frontierCommand, "menu"));
             commands.registrar().register("newcomer", "Alias for /frontier newcomer", java.util.List.of(), new AliasedFrontierCommand(frontierCommand, "newcomer"));
             commands.registrar().register("like", "Alias for /frontier like", java.util.List.of(), new AliasedFrontierCommand(frontierCommand, "like"));
+            commands.registrar().register("tutorial", "Alias for /frontier tutorial", java.util.List.of(), new AliasedFrontierCommand(frontierCommand, "tutorial"));
         });
         if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
             new FrontierPlaceholderExpansion(this, this.frontierService).register();

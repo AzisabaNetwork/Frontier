@@ -7,6 +7,7 @@ import net.azisaba.frontier.integration.worldguard.ClaimProtection;
 import net.azisaba.frontier.repository.FrontierRepositories;
 import net.azisaba.frontier.storage.FrontierDataStore;
 import net.azisaba.frontier.util.UserMessageException;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
 import org.bukkit.Material;
@@ -42,6 +43,7 @@ public final class FrontierService {
     private FrontierEconomy economy;
     private ClaimProtection claimProtection;
     private AuditService auditService;
+    private List<TutorialStepDefinition> tutorialSteps = List.of();
 
     public FrontierService(JavaPlugin plugin, FrontierDataStore dataStore) {
         this(plugin, new net.azisaba.frontier.repository.YamlFrontierRepositories(dataStore), Clock.system(ZoneId.of(plugin.getConfig().getString("plugin.timezone", "Asia/Tokyo"))));
@@ -51,6 +53,7 @@ public final class FrontierService {
         this.plugin = plugin;
         this.repositories = repositories;
         this.clock = clock;
+        this.reloadTutorials();
     }
 
     public void attachIntegrations(FrontierEconomy economy, ClaimProtection claimProtection, AuditService auditService) {
@@ -81,6 +84,97 @@ public final class FrontierService {
 
     public boolean isGameplayEnabled() {
         return this.getActiveSeason().map(this::isGameplayEnabled).orElse(false);
+    }
+
+    public void reloadTutorials() {
+        this.plugin.saveResource("tutorials.yml", false);
+        File file = new File(this.plugin.getDataFolder(), "tutorials.yml");
+        YamlConfiguration yaml = YamlConfiguration.loadConfiguration(file);
+        List<TutorialStepDefinition> loaded = new ArrayList<>();
+        for (Map<?, ?> rawStep : yaml.getMapList("tutorial.steps")) {
+            String id = Objects.toString(rawStep.get("id"), "").trim();
+            String title = Objects.toString(rawStep.get("title"), "").trim();
+            String description = Objects.toString(rawStep.get("description"), "").trim();
+            String objective = Objects.toString(rawStep.get("objective"), "").trim();
+            String actionKey = Objects.toString(rawStep.get("action"), "").trim();
+            if (id.isEmpty() || title.isEmpty() || actionKey.isEmpty()) {
+                continue;
+            }
+            loaded.add(new TutorialStepDefinition(
+                    id,
+                    title,
+                    description,
+                    objective,
+                    actionKey,
+                    parseLong(rawStep.get("reward_coins")),
+                    parseLong(rawStep.get("reward_sp"))
+            ));
+        }
+        this.tutorialSteps = List.copyOf(loaded);
+    }
+
+    public boolean tutorialsEnabled() {
+        return this.plugin.getConfig().getBoolean("tutorial.enabled", true) && !this.tutorialSteps.isEmpty();
+    }
+
+    public boolean tutorialAutoPromptOnJoin() {
+        return this.plugin.getConfig().getBoolean("tutorial.auto_prompt_on_join", true);
+    }
+
+    public TutorialStatus tutorialStatus(Player player) {
+        return this.tutorialStatus(player.getUniqueId());
+    }
+
+    public TutorialStatus tutorialStatus(UUID playerId) {
+        if (!this.tutorialsEnabled()) {
+            return new TutorialStatus(false, false, 0, this.tutorialSteps.size(), null);
+        }
+        PlayerProfileRecord profile = this.getProfile(playerId);
+        int currentIndex = Math.max(0, Math.min(profile.tutorialStep(), this.tutorialSteps.size()));
+        boolean completed = profile.tutorialCompleted() || currentIndex >= this.tutorialSteps.size();
+        TutorialStepDefinition current = completed ? null : this.tutorialSteps.get(currentIndex);
+        return new TutorialStatus(true, completed, currentIndex, this.tutorialSteps.size(), current);
+    }
+
+    public TutorialProgressUpdate recordTutorialAction(Player player, String actionKey) {
+        if (!this.tutorialsEnabled()) {
+            return TutorialProgressUpdate.none();
+        }
+        PlayerProfileRecord profile = this.getProfile(player.getUniqueId());
+        if (profile.tutorialCompleted() || profile.tutorialStep() >= this.tutorialSteps.size()) {
+            return TutorialProgressUpdate.none();
+        }
+        TutorialStepDefinition current = this.tutorialSteps.get(profile.tutorialStep());
+        if (!current.actionKey().equalsIgnoreCase(actionKey)) {
+            return TutorialProgressUpdate.none();
+        }
+        if (current.rewardCoins() > 0L) {
+            this.addCoins(player.getUniqueId(), current.rewardCoins(), "tutorial:" + current.id());
+        }
+        if (current.rewardSp() > 0L) {
+            this.addSeasonPoints(player.getUniqueId(), current.rewardSp(), "tutorial:" + current.id());
+        }
+        int nextIndex = profile.tutorialStep() + 1;
+        boolean completed = nextIndex >= this.tutorialSteps.size();
+        this.repositories.saveProfile(profileKey(player.getUniqueId(), profile.seasonId()), profile.withTutorialState(nextIndex, completed));
+        this.audit("tutorial_step_completed", player.getName(), Map.of("step", current.id(), "completed", completed));
+        this.save();
+        return new TutorialProgressUpdate(
+                true,
+                completed,
+                current,
+                completed ? null : this.tutorialSteps.get(nextIndex),
+                current.rewardCoins(),
+                current.rewardSp()
+        );
+    }
+
+    public TutorialStatus restartTutorial(Player player) {
+        PlayerProfileRecord profile = this.getProfile(player.getUniqueId());
+        this.repositories.saveProfile(profileKey(player.getUniqueId(), profile.seasonId()), profile.withTutorialState(0, false));
+        this.audit("tutorial_restarted", player.getName(), Map.of());
+        this.save();
+        return this.tutorialStatus(player);
     }
 
     public void save() {
@@ -145,7 +239,7 @@ public final class FrontierService {
         String key = profileKey(player.getUniqueId(), season.id());
         PlayerProfileRecord current = this.repositories.findProfile(key);
         if (current == null) {
-            current = new PlayerProfileRecord(player.getUniqueId(), player.getName(), season.id(), 0L, 0L, 0, 0, false, null, null, this.now(), this.now());
+            current = new PlayerProfileRecord(player.getUniqueId(), player.getName(), season.id(), 0L, 0L, 0, 0, false, 0, false, null, null, this.now(), this.now());
         } else {
             current = current.touch(player.getName());
         }
@@ -162,7 +256,7 @@ public final class FrontierService {
         if (profile != null) {
             return profile;
         }
-        return new PlayerProfileRecord(playerId, Bukkit.getOfflinePlayer(playerId).getName(), season.id(), 0L, 0L, 0, 0, false, null, null, this.now(), this.now());
+        return new PlayerProfileRecord(playerId, Bukkit.getOfflinePlayer(playerId).getName(), season.id(), 0L, 0L, 0, 0, false, 0, false, null, null, this.now(), this.now());
     }
 
     public void addCoins(UUID playerId, long amount) {
@@ -1262,6 +1356,20 @@ public final class FrontierService {
     private static String shortName(String playerName) {
         String compact = playerName.replaceAll("[^A-Za-z0-9]", "").toLowerCase(Locale.ROOT);
         return compact.length() > 8 ? compact.substring(0, 8) : compact;
+    }
+
+    private static long parseLong(Object value) {
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        if (value == null) {
+            return 0L;
+        }
+        try {
+            return Long.parseLong(value.toString());
+        } catch (NumberFormatException ignored) {
+            return 0L;
+        }
     }
 
     private void reconcileMissionRotations(SeasonRecord season) {

@@ -12,7 +12,7 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 public final class FrontierDataStore {
-    public static final int CURRENT_SCHEMA_VERSION = 2;
+    public static final int CURRENT_SCHEMA_VERSION = 3;
     private final JavaPlugin plugin;
     private final File file;
 
@@ -78,6 +78,8 @@ public final class FrontierDataStore {
                         section.getInt("totalMissionCompleted"),
                         section.getInt("totalLikesReceived"),
                         section.getBoolean("starterClaimed", false),
+                        section.getInt("tutorialStep", 0),
+                        section.getBoolean("tutorialCompleted", false),
                         parseInstant(section.getString("lastSupportedAt")),
                         parseInstant(section.getString("lastSupportReceivedAt")),
                         parseInstant(section.getString("joinAt")),
@@ -240,6 +242,8 @@ public final class FrontierDataStore {
             yaml.set(path + ".totalMissionCompleted", profile.totalMissionCompleted());
             yaml.set(path + ".totalLikesReceived", profile.totalLikesReceived());
             yaml.set(path + ".starterClaimed", profile.starterClaimed());
+            yaml.set(path + ".tutorialStep", profile.tutorialStep());
+            yaml.set(path + ".tutorialCompleted", profile.tutorialCompleted());
             yaml.set(path + ".lastSupportedAt", stringify(profile.lastSupportedAt()));
             yaml.set(path + ".lastSupportReceivedAt", stringify(profile.lastSupportReceivedAt()));
             yaml.set(path + ".joinAt", stringify(profile.joinAt()));

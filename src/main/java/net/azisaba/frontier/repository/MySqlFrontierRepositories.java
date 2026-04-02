@@ -18,7 +18,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 public final class MySqlFrontierRepositories implements FrontierRepositories, AutoCloseable {
-    public static final int CURRENT_SCHEMA_VERSION = 2;
+    public static final int CURRENT_SCHEMA_VERSION = 3;
     private final HikariDataSource dataSource;
 
     public MySqlFrontierRepositories(JavaPlugin plugin, DatabaseSettings settings) throws SQLException {
@@ -149,8 +149,8 @@ public final class MySqlFrontierRepositories implements FrontierRepositories, Au
     @Override
     public void saveProfile(String key, PlayerProfileRecord profile) {
         this.update("""
-                INSERT INTO frontier_player_profiles(player_uuid, last_known_name, season_id, coins, season_points, total_mission_completed, total_likes_received, starter_claimed, last_supported_at, last_support_received_at, join_at, last_active_at)
-                VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO frontier_player_profiles(player_uuid, last_known_name, season_id, coins, season_points, total_mission_completed, total_likes_received, starter_claimed, tutorial_step, tutorial_completed, last_supported_at, last_support_received_at, join_at, last_active_at)
+                VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON DUPLICATE KEY UPDATE
                 last_known_name = VALUES(last_known_name),
                 coins = VALUES(coins),
@@ -158,6 +158,8 @@ public final class MySqlFrontierRepositories implements FrontierRepositories, Au
                 total_mission_completed = VALUES(total_mission_completed),
                 total_likes_received = VALUES(total_likes_received),
                 starter_claimed = VALUES(starter_claimed),
+                tutorial_step = VALUES(tutorial_step),
+                tutorial_completed = VALUES(tutorial_completed),
                 last_supported_at = VALUES(last_supported_at),
                 last_support_received_at = VALUES(last_support_received_at),
                 join_at = VALUES(join_at),
@@ -171,10 +173,12 @@ public final class MySqlFrontierRepositories implements FrontierRepositories, Au
             ps.setInt(6, profile.totalMissionCompleted());
             ps.setInt(7, profile.totalLikesReceived());
             ps.setBoolean(8, profile.starterClaimed());
-            setInstant(ps, 9, profile.lastSupportedAt());
-            setInstant(ps, 10, profile.lastSupportReceivedAt());
-            setInstant(ps, 11, profile.joinAt());
-            setInstant(ps, 12, profile.lastActiveAt());
+            ps.setInt(9, profile.tutorialStep());
+            ps.setBoolean(10, profile.tutorialCompleted());
+            setInstant(ps, 11, profile.lastSupportedAt());
+            setInstant(ps, 12, profile.lastSupportReceivedAt());
+            setInstant(ps, 13, profile.joinAt());
+            setInstant(ps, 14, profile.lastActiveAt());
         });
     }
 
@@ -474,6 +478,7 @@ public final class MySqlFrontierRepositories implements FrontierRepositories, Au
             switch (existing) {
                 case 0 -> this.applyMigration0To1();
                 case 1 -> this.applyMigration1To2();
+                case 2 -> this.applyMigration2To3();
                 default -> throw new IllegalStateException("Unsupported database schema version: " + existing);
             }
             existing++;
@@ -482,6 +487,9 @@ public final class MySqlFrontierRepositories implements FrontierRepositories, Au
         if (existing >= 2) {
             // Self-heal installs that were incorrectly marked as schema v2 before the v1->v2 ALTERs ran.
             this.applyMigration1To2();
+        }
+        if (existing >= 3) {
+            this.applyMigration2To3();
         }
     }
 
@@ -501,7 +509,7 @@ public final class MySqlFrontierRepositories implements FrontierRepositories, Au
             statement.executeUpdate("CREATE TABLE IF NOT EXISTS frontier_sequences (sequence_key VARCHAR(64) PRIMARY KEY, next_value BIGINT NOT NULL)");
             statement.executeUpdate("CREATE TABLE IF NOT EXISTS frontier_settings (setting_key VARCHAR(64) PRIMARY KEY, setting_value VARCHAR(255) NULL)");
             statement.executeUpdate("CREATE TABLE IF NOT EXISTS frontier_seasons (id BIGINT PRIMARY KEY, season_key VARCHAR(64) UNIQUE NOT NULL, display_name VARCHAR(128) NOT NULL, world_name VARCHAR(128) NOT NULL, phase VARCHAR(32) NOT NULL, created_at TIMESTAMP NULL, start_at TIMESTAMP NULL, end_at TIMESTAMP NULL, archive_at TIMESTAMP NULL, active BOOLEAN NOT NULL)");
-            statement.executeUpdate("CREATE TABLE IF NOT EXISTS frontier_player_profiles (player_uuid CHAR(36) NOT NULL, season_id BIGINT NOT NULL, last_known_name VARCHAR(64) NULL, coins BIGINT NOT NULL, season_points BIGINT NOT NULL, total_mission_completed INT NOT NULL, total_likes_received INT NOT NULL, starter_claimed BOOLEAN NOT NULL DEFAULT FALSE, last_supported_at TIMESTAMP NULL, last_support_received_at TIMESTAMP NULL, join_at TIMESTAMP NULL, last_active_at TIMESTAMP NULL, PRIMARY KEY(player_uuid, season_id))");
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS frontier_player_profiles (player_uuid CHAR(36) NOT NULL, season_id BIGINT NOT NULL, last_known_name VARCHAR(64) NULL, coins BIGINT NOT NULL, season_points BIGINT NOT NULL, total_mission_completed INT NOT NULL, total_likes_received INT NOT NULL, starter_claimed BOOLEAN NOT NULL DEFAULT FALSE, tutorial_step INT NOT NULL DEFAULT 0, tutorial_completed BOOLEAN NOT NULL DEFAULT FALSE, last_supported_at TIMESTAMP NULL, last_support_received_at TIMESTAMP NULL, join_at TIMESTAMP NULL, last_active_at TIMESTAMP NULL, PRIMARY KEY(player_uuid, season_id))");
             statement.executeUpdate("CREATE TABLE IF NOT EXISTS frontier_claims (id BIGINT PRIMARY KEY, season_id BIGINT NOT NULL, world VARCHAR(64) NOT NULL, owner_uuid CHAR(36) NOT NULL, owner_name VARCHAR(64) NOT NULL, region_id VARCHAR(128) NOT NULL, chunk_x INT NOT NULL, chunk_z INT NOT NULL, state VARCHAR(32) NOT NULL, created_at TIMESTAMP NULL, expires_at TIMESTAMP NULL, warning_at TIMESTAMP NULL, abandoned_at TIMESTAMP NULL)");
             statement.executeUpdate("CREATE TABLE IF NOT EXISTS frontier_missions (id BIGINT PRIMARY KEY, season_id BIGINT NOT NULL, scope VARCHAR(32) NOT NULL, title VARCHAR(128) NOT NULL, description TEXT NOT NULL, target_key VARCHAR(128) NOT NULL, target_value BIGINT NOT NULL, reward_coins BIGINT NOT NULL, reward_points BIGINT NOT NULL, active BOOLEAN NOT NULL)");
             statement.executeUpdate("CREATE TABLE IF NOT EXISTS frontier_mission_progress (mission_id BIGINT NOT NULL, player_uuid CHAR(36) NOT NULL, progress BIGINT NOT NULL, completed BOOLEAN NOT NULL, completed_at TIMESTAMP NULL, PRIMARY KEY(mission_id, player_uuid))");
@@ -536,6 +544,17 @@ public final class MySqlFrontierRepositories implements FrontierRepositories, Au
         }
         try (Connection connection = this.dataSource.getConnection(); Statement statement = connection.createStatement()) {
             statement.executeUpdate("ALTER TABLE frontier_orders ADD COLUMN reserved_at TIMESTAMP NULL");
+        } catch (SQLException ignored) {
+        }
+    }
+
+    private void applyMigration2To3() {
+        try (Connection connection = this.dataSource.getConnection(); Statement statement = connection.createStatement()) {
+            statement.executeUpdate("ALTER TABLE frontier_player_profiles ADD COLUMN tutorial_step INT NOT NULL DEFAULT 0");
+        } catch (SQLException ignored) {
+        }
+        try (Connection connection = this.dataSource.getConnection(); Statement statement = connection.createStatement()) {
+            statement.executeUpdate("ALTER TABLE frontier_player_profiles ADD COLUMN tutorial_completed BOOLEAN NOT NULL DEFAULT FALSE");
         } catch (SQLException ignored) {
         }
     }
@@ -608,6 +627,8 @@ public final class MySqlFrontierRepositories implements FrontierRepositories, Au
                 rs.getInt("total_mission_completed"),
                 rs.getInt("total_likes_received"),
                 rs.getBoolean("starter_claimed"),
+                rs.getInt("tutorial_step"),
+                rs.getBoolean("tutorial_completed"),
                 instant(rs, "last_supported_at"),
                 instant(rs, "last_support_received_at"),
                 instant(rs, "join_at"),

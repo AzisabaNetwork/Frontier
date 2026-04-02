@@ -1,5 +1,6 @@
 package net.azisaba.frontier.listener;
 
+import net.azisaba.frontier.domain.TutorialStatus;
 import net.azisaba.frontier.message.MessageService;
 import net.azisaba.frontier.service.FrontierService;
 import net.azisaba.frontier.tab.FrontierTabListService;
@@ -43,6 +44,7 @@ public final class FrontierListener implements Listener {
         this.service.touchProfile(event.getPlayer());
         this.tabListService.refreshPlayer(event.getPlayer());
         this.sendClaimStatusActionBar(event.getPlayer());
+        this.showTutorialPrompt(event.getPlayer());
         event.joinMessage(Component.text("→ ", NamedTextColor.GREEN)
                 .append(Component.text(event.getPlayer().getName(), NamedTextColor.WHITE).decorate(TextDecoration.BOLD))
                 .append(Component.text(" さんがログインしました", NamedTextColor.GRAY)));
@@ -215,5 +217,20 @@ public final class FrontierListener implements Listener {
             case FINALE -> "フィナーレ";
             case ARCHIVED -> "アーカイブ";
         };
+    }
+
+    private void showTutorialPrompt(Player player) {
+        if (!this.service.tutorialAutoPromptOnJoin()) {
+            return;
+        }
+        TutorialStatus status = this.service.tutorialStatus(player);
+        if (!status.enabled() || status.completed() || status.currentStep() == null) {
+            return;
+        }
+        this.messages.send(player, "tutorial.prompt", java.util.Map.of(
+                "prefix", this.messages.get("prefix"),
+                "title", status.currentStep().title()
+        ));
+        this.messages.send(player, "tutorial.step_objective", java.util.Map.of("objective", status.currentStep().objective()));
     }
 }

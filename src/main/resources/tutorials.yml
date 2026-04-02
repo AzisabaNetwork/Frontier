@@ -1,0 +1,57 @@
+tutorial:
+  steps:
+    - id: season
+      title: "シーズン情報を確認しよう"
+      description: "まずは現在のシーズン名、フェーズ、ワールドを確認します。"
+      objective: "/menu からシーズン情報を開くか、/season を実行する"
+      action: "season_viewed"
+      reward_coins: 50
+      reward_sp: 5
+
+    - id: missions
+      title: "ミッションを確認しよう"
+      description: "デイリーやウィークリーの目標を確認して、何をすれば SP が増えるか把握します。"
+      objective: "/menu からミッションを開くか、/missions を実行する"
+      action: "missions_viewed"
+      reward_coins: 50
+      reward_sp: 5
+
+    - id: claim
+      title: "保護を作成しよう"
+      description: "今立っているチャンクを保護して、自分の拠点を確保します。"
+      objective: "/claim create で保護を1つ作成する"
+      action: "claim_created"
+      reward_coins: 150
+      reward_sp: 15
+
+    - id: orders
+      title: "注文ボードを見てみよう"
+      description: "注文ボードを開いて、他のプレイヤーが出している注文を確認します。"
+      objective: "/menu から注文ボードを開くか、/orders を実行する"
+      action: "orders_viewed"
+      reward_coins: 50
+      reward_sp: 5
+
+    - id: create_order
+      title: "注文を出してみよう"
+      description: "自分でも注文を出して、取引システムを体験します。"
+      objective: "/orders create ... か注文 GUI で注文を1つ作成する"
+      action: "order_created"
+      reward_coins: 200
+      reward_sp: 20
+
+    - id: like
+      title: "建築を高評価しよう"
+      description: "他のプレイヤーの保護を訪れて、高評価を1回送ります。"
+      objective: "他人の保護の上で /like を実行する"
+      action: "like_given"
+      reward_coins: 100
+      reward_sp: 10
+
+    - id: newcomer
+      title: "新規プレイヤー支援を確認しよう"
+      description: "新規プレイヤー向けの特典や支援の仕組みを確認します。"
+      objective: "/menu から新規プレイヤー画面を開くか、/newcomer status を実行する"
+      action: "newcomer_viewed"
+      reward_coins: 100
+      reward_sp: 10

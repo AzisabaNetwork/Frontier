@@ -12,6 +12,8 @@ import net.azisaba.frontier.domain.PlayerProfileRecord;
 import net.azisaba.frontier.domain.SeasonPhase;
 import net.azisaba.frontier.domain.SeasonRecord;
 import net.azisaba.frontier.domain.OrderStatus;
+import net.azisaba.frontier.domain.TutorialProgressUpdate;
+import net.azisaba.frontier.domain.TutorialStatus;
 import net.azisaba.frontier.message.MessageService;
 import net.azisaba.frontier.service.FrontierService;
 import net.azisaba.frontier.service.StorageMigrationService;
@@ -60,6 +62,7 @@ public final class FrontierCommand implements BasicCommand {
                 case "menu" -> this.handleMenu(sender);
                 case "newcomer" -> this.handleNewcomer(sender, tail(args));
                 case "like" -> this.handleLike(sender);
+                case "tutorial" -> this.handleTutorial(sender, tail(args));
                 case "admin" -> this.handleAdmin(sender, tail(args));
                 default -> this.sendHelp(sender);
             }
@@ -77,12 +80,13 @@ public final class FrontierCommand implements BasicCommand {
             return List.of();
         }
         if (args.length == 1) {
-            return filterPrefix(args[0], List.of("help", "season", "points", "coins", "missions", "claims", "claim", "orders", "menu", "newcomer", "like", "admin"));
+            return filterPrefix(args[0], List.of("help", "season", "points", "coins", "missions", "claims", "claim", "orders", "menu", "newcomer", "like", "tutorial", "admin"));
         }
         return switch (args[0].toLowerCase(Locale.ROOT)) {
             case "claim" -> this.suggestClaim(sender, args);
             case "orders", "board" -> this.suggestOrders(args);
             case "newcomer" -> this.suggestNewcomer(args);
+            case "tutorial" -> this.suggestTutorial(args);
             case "admin" -> this.suggestAdmin(sender, args);
             default -> List.of();
         };
@@ -94,10 +98,14 @@ public final class FrontierCommand implements BasicCommand {
     }
 
     private void handleSeason(CommandSender sender, String[] args) {
+        Player player = sender instanceof Player online ? online : null;
         SeasonRecord season = this.service.getActiveSeason().orElseThrow(() -> new UserMessageException("error.no_active_season", map("prefix", this.messages.get("prefix"))));
         this.messages.send(sender, "season.status", map("prefix", this.messages.get("prefix"), "display", season.displayName(), "key", season.key()));
         this.messages.send(sender, "season.phase", map("phase", displaySeasonPhase(season.phase())));
         this.messages.send(sender, "season.world", map("world", season.worldName()));
+        if (player != null) {
+            this.sendTutorialUpdate(player, this.service.recordTutorialAction(player, "season_viewed"));
+        }
     }
 
     private void handleBalances(CommandSender sender) {
@@ -122,6 +130,7 @@ public final class FrontierCommand implements BasicCommand {
                     "sp", Long.toString(mission.rewardPoints())
             ));
         }
+        this.sendTutorialUpdate(player, this.service.recordTutorialAction(player, "missions_viewed"));
     }
 
     private void handleClaims(CommandSender sender) {
@@ -155,6 +164,7 @@ public final class FrontierCommand implements BasicCommand {
             case "create" -> {
                 ClaimRecord claim = this.service.createClaim(player);
                 this.messages.send(sender, "claim.created", map("prefix", this.messages.get("prefix"), "id", Long.toString(claim.id()), "x", Integer.toString(claim.chunkX()), "z", Integer.toString(claim.chunkZ())));
+                this.sendTutorialUpdate(player, this.service.recordTutorialAction(player, "claim_created"));
             }
             case "info" -> this.service.getClaimAt(player.getLocation().getChunk())
                     .ifPresentOrElse(
@@ -248,6 +258,7 @@ public final class FrontierCommand implements BasicCommand {
                 int hours = args.length >= 6 ? parseBoundedInt(args[5], "hours", 1, 168) : 24;
                 OrderRecord order = this.service.createPlayerOrder(player, type, item, amount, unitPrice, hours);
                 this.messages.send(sender, "order.created", map("prefix", this.messages.get("prefix"), "id", Long.toString(order.id()), "fee", Long.toString(order.fee())));
+                this.sendTutorialUpdate(player, this.service.recordTutorialAction(player, "order_created"));
             }
             case "fill" -> {
                 if (args.length < 2) {
@@ -262,6 +273,7 @@ public final class FrontierCommand implements BasicCommand {
                 }
                 OrderRecord order = this.service.reserveOrder(player, parsePositiveLong(args[1], "order id"));
                 this.messages.send(sender, "order.reserved", map("prefix", this.messages.get("prefix"), "id", Long.toString(order.id())));
+                this.sendTutorialUpdate(player, this.service.recordTutorialAction(player, "order_reserved"));
             }
             case "deliver", "submit" -> {
                 if (args.length < 2) {
@@ -287,6 +299,7 @@ public final class FrontierCommand implements BasicCommand {
     private void handleNewcomer(Player player, String[] args) {
         if (args.length == 0 || equals(args[0], "status")) {
             this.messages.send(player, "newcomer.status", map("prefix", this.messages.get("prefix"), "status", this.service.newcomerStatus(player)));
+            this.sendTutorialUpdate(player, this.service.recordTutorialAction(player, "newcomer_viewed"));
             return;
         }
         switch (args[0].toLowerCase(Locale.ROOT)) {
@@ -313,6 +326,24 @@ public final class FrontierCommand implements BasicCommand {
         Player player = requirePlayer(sender);
         ClaimRecord claim = this.service.likeCurrentClaim(player);
         this.messages.send(sender, "like.added", map("prefix", this.messages.get("prefix"), "owner", claim.ownerName()));
+        this.sendTutorialUpdate(player, this.service.recordTutorialAction(player, "like_given"));
+    }
+
+    private void handleTutorial(CommandSender sender, String[] args) {
+        Player player = requirePlayer(sender);
+        if (args.length == 0 || equals(args[0], "status") || equals(args[0], "show")) {
+            this.showTutorialStatus(player);
+            return;
+        }
+        switch (args[0].toLowerCase(Locale.ROOT)) {
+            case "restart", "reset" -> {
+                this.service.restartTutorial(player);
+                this.messages.send(player, "tutorial.restarted", map("prefix", this.messages.get("prefix")));
+                this.showTutorialStatus(player);
+            }
+            case "repeat" -> this.showTutorialStatus(player);
+            default -> this.messages.send(player, "usage.tutorial", map("prefix", this.messages.get("prefix")));
+        }
     }
 
     private void handleAdmin(CommandSender sender, String[] args) {
@@ -339,6 +370,7 @@ public final class FrontierCommand implements BasicCommand {
                         net.azisaba.frontier.integration.worldguard.ClaimProtectionProvider.create(),
                         new AuditService(this.plugin)
                 );
+                this.service.reloadTutorials();
                 this.logAdmin(sender, "reload", map());
                 this.messages.send(sender, "admin.reload", map("prefix", this.messages.get("prefix")));
             }
@@ -561,6 +593,7 @@ public final class FrontierCommand implements BasicCommand {
         lines.add("help.menu");
         lines.add("help.newcomer");
         lines.add("help.like");
+        lines.add("help.tutorial");
         if (sender.hasPermission("frontier.admin")) {
             lines.add("help.admin_season");
             lines.add("help.admin_economy");
@@ -590,6 +623,13 @@ public final class FrontierCommand implements BasicCommand {
 
     private static boolean equals(String left, String right) {
         return left.equalsIgnoreCase(right);
+    }
+
+    private Collection<String> suggestTutorial(String[] args) {
+        if (args.length == 2) {
+            return filterPrefix(args[1], List.of("status", "repeat", "restart"));
+        }
+        return List.of();
     }
 
     private Collection<String> suggestClaim(CommandSender sender, String[] args) {
@@ -630,6 +670,51 @@ public final class FrontierCommand implements BasicCommand {
             }
         }
         return List.of();
+    }
+
+    private void showTutorialStatus(Player player) {
+        TutorialStatus status = this.service.tutorialStatus(player);
+        if (!status.enabled()) {
+            this.messages.send(player, "tutorial.disabled", map("prefix", this.messages.get("prefix")));
+            return;
+        }
+        if (status.completed()) {
+            this.messages.send(player, "tutorial.completed_all", map("prefix", this.messages.get("prefix")));
+            return;
+        }
+        this.messages.send(player, "tutorial.status", map(
+                "prefix", this.messages.get("prefix"),
+                "current", Integer.toString(status.currentIndex() + 1),
+                "total", Integer.toString(status.totalSteps())
+        ));
+        this.messages.send(player, "tutorial.step_title", map("title", status.currentStep().title()));
+        this.messages.send(player, "tutorial.step_description", map("description", status.currentStep().description()));
+        this.messages.send(player, "tutorial.step_objective", map("objective", status.currentStep().objective()));
+    }
+
+    private void sendTutorialUpdate(Player player, TutorialProgressUpdate update) {
+        if (!update.advanced()) {
+            return;
+        }
+        this.messages.send(player, "tutorial.step_completed", map(
+                "prefix", this.messages.get("prefix"),
+                "title", update.completedStep().title()
+        ));
+        if (update.rewardCoins() > 0L || update.rewardSp() > 0L) {
+            this.messages.send(player, "tutorial.reward", map(
+                    "prefix", this.messages.get("prefix"),
+                    "coins", Long.toString(update.rewardCoins()),
+                    "sp", Long.toString(update.rewardSp())
+            ));
+        }
+        if (update.completedTutorial()) {
+            this.messages.send(player, "tutorial.completed_all", map("prefix", this.messages.get("prefix")));
+        } else if (update.nextStep() != null) {
+            this.messages.send(player, "tutorial.next_step", map(
+                    "prefix", this.messages.get("prefix"),
+                    "title", update.nextStep().title()
+            ));
+        }
     }
 
     private Collection<String> suggestOrders(String[] args) {

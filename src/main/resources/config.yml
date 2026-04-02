@@ -2,6 +2,10 @@ plugin:
   debug: false
   timezone: Asia/Tokyo
 
+tutorial:
+  enabled: true
+  auto_prompt_on_join: true
+
 tab_list_sp:
   enabled: false
   title: "&bSP"

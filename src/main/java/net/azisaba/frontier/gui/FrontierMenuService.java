@@ -6,6 +6,7 @@ import net.azisaba.frontier.domain.OrderRecord;
 import net.azisaba.frontier.domain.OrderStatus;
 import net.azisaba.frontier.domain.OrderType;
 import net.azisaba.frontier.domain.PlayerProfileRecord;
+import net.azisaba.frontier.domain.TutorialProgressUpdate;
 import net.azisaba.frontier.message.MessageService;
 import net.azisaba.frontier.service.FrontierService;
 import org.bukkit.ChatColor;
@@ -108,6 +109,7 @@ public final class FrontierMenuService {
         )));
         inventory.setItem(22, item(Material.ARROW, "&7戻る", List.of("&8メインメニューへ戻ります")));
         player.openInventory(inventory);
+        this.sendTutorialUpdate(player, this.service.recordTutorialAction(player, "season_viewed"));
     }
 
     public void openMissions(Player player) {
@@ -125,12 +127,14 @@ public final class FrontierMenuService {
         }
         inventory.setItem(49, item(Material.ARROW, "&7戻る", List.of("&8メインメニューへ戻ります")));
         player.openInventory(inventory);
+        this.sendTutorialUpdate(player, this.service.recordTutorialAction(player, "missions_viewed"));
     }
 
     public void openOrders(Player player) {
         Inventory inventory = Bukkit.createInventory(player, 54, ORDERS_TITLE);
         this.renderOrdersInventory(player, inventory);
         player.openInventory(inventory);
+        this.sendTutorialUpdate(player, this.service.recordTutorialAction(player, "orders_viewed"));
     }
 
     public void refreshOpenOrderMenus() {
@@ -184,6 +188,7 @@ public final class FrontierMenuService {
         }
         inventory.setItem(49, item(Material.ARROW, "&7戻る", List.of("&8メインメニューへ戻ります")));
         player.openInventory(inventory);
+        this.sendTutorialUpdate(player, this.service.recordTutorialAction(player, "newcomer_viewed"));
     }
 
     public void handleMenuClick(Player player, String title, int slot, ItemStack clicked, ClickType click) {
@@ -257,6 +262,7 @@ public final class FrontierMenuService {
                 if (order.status() == OrderStatus.OPEN) {
                     this.service.reserveOrder(player, orderId);
                     this.messages.send(player, "order.reserved", java.util.Map.of("prefix", this.messages.get("prefix"), "id", Long.toString(orderId)));
+                    this.sendTutorialUpdate(player, this.service.recordTutorialAction(player, "order_reserved"));
                 } else if (order.status() == OrderStatus.RESERVED && player.getUniqueId().equals(order.reservedByUuid())) {
                     this.service.deliverOrder(player, orderId);
                     this.messages.send(player, "order.completed", java.util.Map.of("prefix", this.messages.get("prefix"), "id", Long.toString(orderId)));
@@ -282,6 +288,7 @@ public final class FrontierMenuService {
                     case 31 -> {
                         OrderRecord order = this.service.createPlayerOrder(player, draft.type, draft.itemKey, draft.amount, draft.unitPrice, draft.hours);
                         this.messages.send(player, "order.created", java.util.Map.of("prefix", this.messages.get("prefix"), "id", Long.toString(order.id()), "fee", Long.toString(order.fee())));
+                        this.sendTutorialUpdate(player, this.service.recordTutorialAction(player, "order_created"));
                         this.drafts.remove(player.getUniqueId());
                         this.openOrders(player);
                         yield null;
@@ -427,6 +434,31 @@ public final class FrontierMenuService {
             return Long.parseLong(number);
         } catch (NumberFormatException e) {
             return -1L;
+        }
+    }
+
+    private void sendTutorialUpdate(Player player, TutorialProgressUpdate update) {
+        if (!update.advanced()) {
+            return;
+        }
+        this.messages.send(player, "tutorial.step_completed", java.util.Map.of(
+                "prefix", this.messages.get("prefix"),
+                "title", update.completedStep().title()
+        ));
+        if (update.rewardCoins() > 0L || update.rewardSp() > 0L) {
+            this.messages.send(player, "tutorial.reward", java.util.Map.of(
+                    "prefix", this.messages.get("prefix"),
+                    "coins", Long.toString(update.rewardCoins()),
+                    "sp", Long.toString(update.rewardSp())
+            ));
+        }
+        if (update.completedTutorial()) {
+            this.messages.send(player, "tutorial.completed_all", java.util.Map.of("prefix", this.messages.get("prefix")));
+        } else if (update.nextStep() != null) {
+            this.messages.send(player, "tutorial.next_step", java.util.Map.of(
+                    "prefix", this.messages.get("prefix"),
+                    "title", update.nextStep().title()
+            ));
         }
     }
 
