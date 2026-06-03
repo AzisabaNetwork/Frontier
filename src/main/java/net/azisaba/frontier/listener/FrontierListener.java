@@ -7,6 +7,7 @@ import net.azisaba.frontier.tab.FrontierTabListService;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
+import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.SoundCategory;
 import org.bukkit.Chunk;
@@ -96,6 +97,11 @@ public final class FrontierListener implements Listener {
         if (!this.service.canEdit(event.getPlayer(), event.getBlock().getChunk())) {
             event.setCancelled(true);
             this.messages.send(event.getPlayer(), "claim.protected", java.util.Map.of("prefix", this.messages.get("prefix")));
+            return;
+        }
+        if ((event.getBlock().getType() == Material.LAVA || event.getBlock().getType() == Material.FIRE) && !event.getBlock().getLocation().getNearbyPlayers(3).isEmpty()) {
+            event.setCancelled(true);
+            this.messages.send(event.getPlayer(), "error.lava", java.util.Map.of("prefix", this.messages.get("prefix")));
         }
     }
 

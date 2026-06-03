@@ -63,6 +63,7 @@ error:
   order_owner_inventory_full: "{prefix}&c注文の所有者のインベントリに空きがありません。"
   inventory_full: "{prefix}&cインベントリの空きが足りません。"
   menu_order_item_required: "{prefix}&c注文作成を開く前にメインハンドへ対象アイテムを持ってください。"
+  lava: "{prefix}&cプレイヤーの近くでは、このブロックを設置することはできません。"
 
 season:
   status: "{prefix}&bシーズン {display} [&f{key}&b]"
