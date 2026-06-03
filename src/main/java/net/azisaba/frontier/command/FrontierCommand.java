@@ -371,6 +371,7 @@ public final class FrontierCommand implements BasicCommand {
                         new AuditService(this.plugin)
                 );
                 this.service.reloadTutorials();
+                this.plugin.reloadBroadcastMessages();
                 this.logAdmin(sender, "reload", map());
                 this.messages.send(sender, "admin.reload", map("prefix", this.messages.get("prefix")));
             }

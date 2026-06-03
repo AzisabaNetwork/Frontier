@@ -10,6 +10,14 @@ tab_list_sp:
   enabled: false
   title: "&bSP"
 
+broadcast:
+  enabled: false
+  interval_minutes: 30
+  messages:
+    - "{prefix}&eFrontierをお楽しみください。"
+    - "{prefix}&e困ったときは /frontier help を確認してください。"
+    - "{prefix}&e拠点の保護期限を定期的に確認しましょう。"
+
 season:
   auto_rotate_daily: true
   auto_rotate_weekly: true

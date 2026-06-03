@@ -53,6 +53,14 @@ public final class MessageService {
         if (value == null) {
             value = this.defaults.getString(key, "&cMissing message: " + key);
         }
+        return this.format(value, placeholders);
+    }
+
+    public String format(String value) {
+        return this.format(value, Map.of());
+    }
+
+    public String format(String value, Map<String, String> placeholders) {
         java.util.Map<String, String> resolved = new java.util.HashMap<>(placeholders);
         resolved.putIfAbsent("prefix", this.messages.getString("prefix", this.defaults.getString("prefix", "")));
         for (var entry : resolved.entrySet()) {

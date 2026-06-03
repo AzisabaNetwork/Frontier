@@ -16,6 +16,7 @@ import net.azisaba.frontier.message.MessageService;
 import net.azisaba.frontier.repository.FrontierRepositories;
 import net.azisaba.frontier.repository.MySqlFrontierRepositories;
 import net.azisaba.frontier.repository.RepositoryFactory;
+import net.azisaba.frontier.service.BroadcastMessageService;
 import net.azisaba.frontier.service.FrontierService;
 import net.azisaba.frontier.storage.DatabaseSettings;
 import net.azisaba.frontier.tab.FrontierTabListService;
@@ -36,11 +37,13 @@ public class FrontierPlugin extends JavaPlugin {
     private FrontierMenuService frontierMenuService;
     private BlueMapClaimVisualizer blueMapClaimVisualizer;
     private FrontierTabListService tabListService;
+    private BroadcastMessageService broadcastMessageService;
 
     @Override
     public void onEnable() {
         this.saveDefaultConfig();
         this.messageService = new MessageService(this);
+        this.broadcastMessageService = new BroadcastMessageService(this, this.messageService);
         this.auditService = new AuditService(this);
         this.databaseSettings = DatabaseSettings.load(this);
         try {
@@ -69,6 +72,7 @@ public class FrontierPlugin extends JavaPlugin {
         }
         Bukkit.getPluginManager().registerEvents(new FrontierListener(this.frontierService, this.messageService, this.tabListService), this);
         Bukkit.getPluginManager().registerEvents(new FrontierMenuListener(this.frontierMenuService, this.messageService), this);
+        this.broadcastMessageService.reload();
         this.tickAutomationAndNotify();
         Bukkit.getScheduler().runTaskTimer(this, this::tickAutomationAndNotify, 20L * 60L, 20L * 60L);
         Bukkit.getScheduler().runTaskTimer(this, () -> this.frontierMenuService.refreshOpenOrderMenus(), 60L, 60L);
@@ -107,6 +111,9 @@ public class FrontierPlugin extends JavaPlugin {
     public void onDisable() {
         if (this.frontierService != null) {
             this.frontierService.save();
+        }
+        if (this.broadcastMessageService != null) {
+            this.broadcastMessageService.stop();
         }
         if (this.tabListService != null) {
             this.tabListService.clear();
@@ -190,5 +197,11 @@ public class FrontierPlugin extends JavaPlugin {
 
     public FrontierMenuService menus() {
         return this.frontierMenuService;
+    }
+
+    public void reloadBroadcastMessages() {
+        if (this.broadcastMessageService != null) {
+            this.broadcastMessageService.reload();
+        }
     }
 }
