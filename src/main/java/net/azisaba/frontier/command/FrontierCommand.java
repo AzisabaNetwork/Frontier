@@ -157,7 +157,7 @@ public final class FrontierCommand implements BasicCommand {
     private void handleClaim(CommandSender sender, String[] args) {
         Player player = requirePlayer(sender);
         if (args.length == 0) {
-            this.messages.send(sender, "help.claim");
+            this.sendClaimHelp(sender);
             return;
         }
         switch (args[0].toLowerCase(Locale.ROOT)) {
@@ -220,7 +220,7 @@ public final class FrontierCommand implements BasicCommand {
                     throw new UserMessageException("usage.claim_owner", map("prefix", this.messages.get("prefix")));
                 }
             }
-            default -> this.messages.send(sender, "help.claim");
+            default -> this.sendClaimHelp(sender);
         }
     }
 
@@ -604,6 +604,20 @@ public final class FrontierCommand implements BasicCommand {
             lines.add("help.admin_debug");
         }
         lines.forEach(key -> this.messages.send(sender, key, map("prefix", this.messages.get("prefix"))));
+    }
+
+    private void sendClaimHelp(CommandSender sender) {
+        List.of(
+                "help.claim_header",
+                "help.claim_create",
+                "help.claim_info",
+                "help.claim_renew",
+                "help.claim_release",
+                "help.claim_members",
+                "help.claim_trust",
+                "help.claim_untrust",
+                "help.claim_owner"
+        ).forEach(key -> this.messages.send(sender, key, map("prefix", this.messages.get("prefix"))));
     }
 
     private Player requirePlayer(CommandSender sender) {
