@@ -18,11 +18,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.inventory.CraftItemEvent;
-import org.bukkit.event.player.PlayerFishEvent;
-import org.bukkit.event.player.PlayerInteractEvent;
-import org.bukkit.event.player.PlayerJoinEvent;
-import org.bukkit.event.player.PlayerMoveEvent;
-import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.*;
 import org.bukkit.inventory.CraftingInventory;
 import org.bukkit.inventory.ItemStack;
 
@@ -99,9 +95,17 @@ public final class FrontierListener implements Listener {
             this.messages.send(event.getPlayer(), "claim.protected", java.util.Map.of("prefix", this.messages.get("prefix")));
             return;
         }
-        if ((event.getBlock().getType() == Material.LAVA || event.getBlock().getType() == Material.FIRE) && !event.getBlock().getLocation().getNearbyPlayers(3).isEmpty()) {
+        if (event.getBlock().getType() == Material.FIRE && event.getBlock().getLocation().getNearbyPlayers(4).size() > 1) {
             event.setCancelled(true);
             this.messages.send(event.getPlayer(), "error.lava", java.util.Map.of("prefix", this.messages.get("prefix")));
+        }
+    }
+
+    @EventHandler
+    public void onPlaceLava(PlayerBucketEmptyEvent e) {
+        if (e.getBucket() == Material.LAVA_BUCKET && e.getBlock().getLocation().getNearbyPlayers(4).size() > 1) {
+            e.setCancelled(true);
+            this.messages.send(e.getPlayer(), "error.lava", java.util.Map.of("prefix", this.messages.get("prefix")));
         }
     }
 
