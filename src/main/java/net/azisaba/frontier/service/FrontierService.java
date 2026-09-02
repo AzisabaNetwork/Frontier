@@ -777,7 +777,11 @@ public final class FrontierService {
         for (ClaimRecord claim : new ArrayList<>(this.repositories.claims())) {
             ClaimState next = nextClaimState(claim, now, this.warningDays(), this.expireDays(), this.abandonDays());
             if (next != claim.state()) {
-                this.saveClaimRecord(claim.withState(next));
+                ClaimRecord updated = claim.withState(next);
+                this.saveClaimRecord(updated);
+                if (next == ClaimState.ABANDONED) {
+                    this.claimProtection.releaseClaimRegion(updated);
+                }
                 this.audit("claim_state_changed", "system", Map.of("claimId", claim.id(), "from", claim.state().name(), "to", next.name()));
                 this.queueClaimNotificationIfDue(claim.ownerUuid(), claim.id(), next, claim.expiresAt(), now);
                 changed = true;
