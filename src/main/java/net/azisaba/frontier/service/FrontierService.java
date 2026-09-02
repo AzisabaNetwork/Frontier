@@ -756,6 +756,7 @@ public final class FrontierService {
     }
 
     public void tickAutomation() {
+        this.reconcileAbandonedClaimRegions();
         this.reconcileSeasonSchedule();
         this.getActiveSeason().ifPresent(season -> {
             if (this.isMissionRotationEnabled(season)) {
@@ -765,6 +766,17 @@ public final class FrontierService {
                 this.tickClaims();
             }
         });
+    }
+
+    private void reconcileAbandonedClaimRegions() {
+        if (this.claimProtection == null) {
+            return;
+        }
+        for (ClaimRecord claim : new ArrayList<>(this.repositories.claims())) {
+            if (claim.state() == ClaimState.ABANDONED) {
+                this.claimProtection.releaseClaimRegion(claim);
+            }
+        }
     }
 
     public void tickClaims() {
