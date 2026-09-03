@@ -7,16 +7,15 @@ import net.azisaba.frontier.tab.FrontierTabListService;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
-import org.bukkit.Material;
-import org.bukkit.Sound;
-import org.bukkit.SoundCategory;
-import org.bukkit.Chunk;
+import org.bukkit.*;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.inventory.CraftItemEvent;
 import org.bukkit.event.player.*;
 import org.bukkit.inventory.CraftingInventory;
@@ -149,6 +148,17 @@ public final class FrontierListener implements Listener {
         }
         this.service.recordFishProgress(event.getPlayer(), item.getItemStack().getType(), item.getItemStack().getAmount())
                 .forEach(title -> this.notifyMissionCompleted(event.getPlayer(), title));
+    }
+
+    @EventHandler
+    public void onDeath(PlayerDeathEvent e) {
+        Bukkit.getLogger().info(e.getPlayer().getName() + " has died. Damage type: " + e.getDamageSource().getDamageType());
+        if (e.getDamageSource().getDamageLocation() != null) {
+            Bukkit.getLogger().info(e.getDamageSource().getDamageLocation().toString());
+            for (Player nearbyPlayer : e.getDamageSource().getDamageLocation().getNearbyPlayers(32)) {
+                Bukkit.getLogger().info("Nearby player: " + nearbyPlayer.getName());
+            }
+        }
     }
 
     private static long craftedAmount(CraftItemEvent event, Player player, ItemStack result) {
