@@ -227,6 +227,10 @@ public final class FrontierCommand implements BasicCommand {
     private void handleOrders(CommandSender sender, String[] args) {
         Player player = sender instanceof Player ? (Player) sender : null;
         if (args.length == 0 || equals(args[0], "list")) {
+            if (player != null && args.length == 0) {
+                this.plugin.menus().openOrders(player);
+                return;
+            }
             List<OrderRecord> orders = this.service.listOrders();
             this.messages.send(sender, "order.header", map("prefix", this.messages.get("prefix")));
             for (OrderRecord order : orders) {
@@ -281,6 +285,13 @@ public final class FrontierCommand implements BasicCommand {
                 }
                 OrderRecord order = this.service.deliverOrder(player, parsePositiveLong(args[1], "order id"));
                 this.messages.send(sender, "order.completed", map("prefix", this.messages.get("prefix"), "id", Long.toString(order.id())));
+            }
+            case "reclaim" -> {
+                if (args.length < 2) {
+                    throw new UserMessageException("usage.orders_reclaim");
+                }
+                OrderRecord order = this.service.reclaimOrder(player, parsePositiveLong(args[1], "order id"));
+                this.messages.send(player, "order.returned", map("id", Long.toString(order.id())));
             }
             default -> this.messages.send(sender, "help.orders");
         }
@@ -734,7 +745,7 @@ public final class FrontierCommand implements BasicCommand {
 
     private Collection<String> suggestOrders(String[] args) {
         if (args.length == 2) {
-            return filterPrefix(args[1], List.of("list", "create", "accept", "deliver", "fill"));
+            return filterPrefix(args[1], List.of("list", "create", "accept", "deliver", "fill", "reclaim"));
         }
         if (equals(args[1], "create")) {
             if (args.length == 3) {
@@ -978,6 +989,7 @@ public final class FrontierCommand implements BasicCommand {
             case COMPLETED -> "完了";
             case EXPIRED -> "期限切れ";
             case CANCELLED -> "取消";
+            case RETURNED -> "回収済み";
         };
     }
 

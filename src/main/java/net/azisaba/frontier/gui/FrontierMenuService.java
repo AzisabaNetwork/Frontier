@@ -43,6 +43,7 @@ public final class FrontierMenuService {
     private final FrontierService service;
     private final MessageService messages;
     private final Map<UUID, OrderDraft> drafts = new HashMap<>();
+    private final Map<UUID, Integer> orderPages = new HashMap<>();
 
     public FrontierMenuService(FrontierService service, MessageService messages) {
         this.service = service;
@@ -242,6 +243,11 @@ public final class FrontierMenuService {
                 }
             }
             case ORDERS_TITLE -> {
+                if (slot == 45 || slot == 47) {
+                    this.orderPages.merge(player.getUniqueId(), slot == 45 ? -1 : 1, Integer::sum);
+                    this.openOrders(player);
+                    return;
+                }
                 if (slot == 49) {
                     this.openMain(player);
                     return;
@@ -259,7 +265,10 @@ public final class FrontierMenuService {
                     this.messages.send(player, "error.order_not_found_or_closed", java.util.Map.of("prefix", this.messages.get("prefix")));
                     return;
                 }
-                if (order.status() == OrderStatus.OPEN) {
+                if (order.status() == OrderStatus.EXPIRED && player.getUniqueId().equals(order.ownerUuid())) {
+                    this.service.reclaimOrder(player, orderId);
+                    this.messages.send(player, "order.returned", java.util.Map.of("id", Long.toString(orderId)));
+                } else if (order.status() == OrderStatus.OPEN) {
                     this.service.reserveOrder(player, orderId);
                     this.messages.send(player, "order.reserved", java.util.Map.of("prefix", this.messages.get("prefix"), "id", Long.toString(orderId)));
                     this.sendTutorialUpdate(player, this.service.recordTutorialAction(player, "order_reserved"));
@@ -364,22 +373,40 @@ public final class FrontierMenuService {
         inventory.clear();
         boolean showOrderItem = this.showOrderItemIcon();
         int slot = 0;
-        for (OrderRecord order : this.service.listOrders().stream().limit(45).toList()) {
+        List<OrderRecord> orders = this.service.listOrders().stream()
+                .filter(order -> order.status() == OrderStatus.OPEN || order.status() == OrderStatus.RESERVED
+                        || (order.status() == OrderStatus.EXPIRED && player.getUniqueId().equals(order.ownerUuid())))
+                .toList();
+        int lastPage = Math.max(0, (orders.size() - 1) / 45);
+        int page = Math.max(0, Math.min(this.orderPages.getOrDefault(player.getUniqueId(), 0), lastPage));
+        this.orderPages.put(player.getUniqueId(), page);
+        for (OrderRecord order : orders.stream().skip((long) page * 45).limit(45).toList()) {
             Material icon = showOrderItem ? resolveOrderItem(order.itemKey()) : orderStatusIcon(order.status());
             List<String> lore = new ArrayList<>();
             lore.add("&7種別: &f" + displayOrderType(order.orderType()));
             lore.add("&7アイテム: &f" + order.itemKey());
             lore.add("&7数量: &f" + order.amount() + "   &7単価: &6" + order.unitPrice() + "コイン");
+            lore.add("&7合計: &6" + order.totalPrice() + "コイン");
             lore.add("&7所有者: &f" + order.ownerName());
             lore.add("&7状態: &f" + displayOrderStatus(order.status()));
+            lore.add("&7期限: &f" + DATE_TIME.format(order.expiresAt()));
             lore.add(showOrderItem ? "&8表示: 注文アイテム" : "&8表示: 注文状態");
             if (order.reservedByName() != null) {
                 lore.add("&7予約者: &f" + order.reservedByName());
             }
-            if (order.status() == OrderStatus.OPEN) {
+            if (order.orderType() == OrderType.BUY_ITEM && order.ownerUuid() != null) {
+                lore.add("&7納品には注文主のオンラインと空き容量が必要です");
+            }
+            if (order.status() == OrderStatus.EXPIRED && player.getUniqueId().equals(order.ownerUuid())) {
+                lore.add("&8クリック: 預けたアイテム / 代金を回収");
+            } else if (player.getUniqueId().equals(order.ownerUuid())) {
+                lore.add("&8自分の注文です（期限切れ後に回収できます）");
+            } else if (order.status() == OrderStatus.OPEN) {
                 lore.add("&8クリック: 予約");
             } else if (order.status() == OrderStatus.RESERVED && player.getUniqueId().equals(order.reservedByUuid())) {
-                lore.add("&8クリック: 納品");
+                lore.add(order.orderType() == OrderType.BUY_ITEM ? "&8クリック: 納品" : "&8クリック: 購入");
+            } else if (order.status() == OrderStatus.RESERVED) {
+                lore.add("&8他のプレイヤーが予約中です");
             }
             inventory.setItem(slot++, item(icon, "&6#" + order.id(), lore));
         }
@@ -387,6 +414,17 @@ public final class FrontierMenuService {
                 "&7メインハンドのアイテムを使います",
                 "&8種別・数量・価格・時間を設定"
         )));
+        if (page > 0) {
+            inventory.setItem(45, item(Material.ARROW, "&e前のページ", List.of()));
+        }
+        inventory.setItem(46, item(Material.BOOK, "&e取引の使い方 / " + (page + 1) + "ページ", List.of(
+                "&7受付中の注文をクリックして予約", "&7もう一度クリックして納品 / 購入",
+                "&7販売: アイテムを預ける / 買取: 代金を預ける",
+                "&7期限切れの自分の注文はクリックで回収",
+                "&7コマンド: /orders reclaim <注文番号>")));
+        if (page < lastPage) {
+            inventory.setItem(47, item(Material.ARROW, "&e次のページ", List.of()));
+        }
         inventory.setItem(49, item(Material.ARROW, "&7戻る", List.of("&8メインメニューへ戻ります")));
     }
 
@@ -401,6 +439,7 @@ public final class FrontierMenuService {
             case COMPLETED -> Material.MINECART;
             case EXPIRED -> Material.HOPPER_MINECART;
             case CANCELLED -> Material.TNT_MINECART;
+            case RETURNED -> Material.CHEST;
         };
     }
 
@@ -424,7 +463,7 @@ public final class FrontierMenuService {
         if (clicked.getItemMeta() == null || clicked.getItemMeta().getDisplayName() == null) {
             return -1L;
         }
-        String raw = clicked.getItemMeta().getDisplayName();
+        String raw = ChatColor.stripColor(clicked.getItemMeta().getDisplayName());
         if (!raw.startsWith(prefix)) {
             return -1L;
         }
@@ -497,6 +536,7 @@ public final class FrontierMenuService {
             case COMPLETED -> "完了";
             case EXPIRED -> "期限切れ";
             case CANCELLED -> "取消";
+            case RETURNED -> "回収済み";
         };
     }
 

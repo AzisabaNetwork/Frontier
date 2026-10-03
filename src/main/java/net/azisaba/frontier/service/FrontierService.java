@@ -606,10 +606,10 @@ public final class FrontierService {
             if (this.coinBalance(player.getUniqueId()) < order.totalPrice()) {
                 throw fail("error.not_enough_coins", "required", Long.toString(order.totalPrice()));
             }
-            this.addCoins(player.getUniqueId(), -order.totalPrice(), "order_fill_sell");
             if (!this.canReceiveItems(player, material, order.amount())) {
                 throw fail("error.inventory_full");
             }
+            this.addCoins(player.getUniqueId(), -order.totalPrice(), "order_fill_sell");
             this.giveItems(player, material, order.amount());
             if (order.ownerUuid() != null) {
                 this.addCoins(order.ownerUuid(), order.totalPrice(), "order_completed_sell");
@@ -631,12 +631,36 @@ public final class FrontierService {
     public List<OrderRecord> listOrders() {
         Instant now = this.now();
         List<OrderRecord> orders = this.repositories.orders().stream()
-                .map(order -> order.expiresAt().isBefore(now) && (order.status() == OrderStatus.OPEN || order.status() == OrderStatus.RESERVED) ? order.clearReservation(OrderStatus.EXPIRED) : order)
+                .map(order -> !now.isBefore(order.expiresAt()) && (order.status() == OrderStatus.OPEN || order.status() == OrderStatus.RESERVED) ? order.clearReservation(OrderStatus.EXPIRED) : order)
                 .peek(this.repositories::saveOrder)
                 .sorted(Comparator.comparing(OrderRecord::createdAt).reversed())
                 .toList();
         this.save();
         return orders;
+    }
+
+    public OrderRecord reclaimOrder(Player player, long orderId) {
+        OrderRecord order = this.repositories.findOrder(orderId);
+        if (order == null || !player.getUniqueId().equals(order.ownerUuid())
+                || (order.status() != OrderStatus.EXPIRED
+                && !((order.status() == OrderStatus.OPEN || order.status() == OrderStatus.RESERVED)
+                && !this.now().isBefore(order.expiresAt())))) {
+            throw fail("error.order_not_reclaimable");
+        }
+        if (order.orderType() == OrderType.SELL_ITEM) {
+            Material material = this.parseMaterial(order.itemKey());
+            if (!this.canReceiveItems(player, material, order.amount())) {
+                throw fail("error.inventory_full");
+            }
+            this.giveItems(player, material, order.amount());
+        } else {
+            this.addCoins(player.getUniqueId(), order.totalPrice(), "order_expired_refund");
+        }
+        OrderRecord returned = order.clearReservation(OrderStatus.RETURNED);
+        this.repositories.saveOrder(returned);
+        this.save();
+        this.audit("order_returned", player.getName(), Map.of("orderId", order.id()));
+        return returned;
     }
 
     public String newcomerStatus(Player player) {
@@ -1116,9 +1140,9 @@ public final class FrontierService {
     private boolean canReceiveItems(Player player, Material material, long amount) {
         long remaining = amount;
         for (ItemStack stack : player.getInventory().getStorageContents()) {
-            if (stack == null) {
+            if (stack == null || stack.getType().isAir()) {
                 remaining -= material.getMaxStackSize();
-            } else if (stack.getType() == material) {
+            } else if (stack.getType() == material && !stack.hasItemMeta()) {
                 remaining -= material.getMaxStackSize() - stack.getAmount();
             }
             if (remaining <= 0) {
