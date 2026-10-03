@@ -1,6 +1,7 @@
 prefix: "&6[Frontier]&r "
 
 error:
+  order_not_reclaimable: "{prefix}&c回収できるのは、自分の期限切れ・未回収の注文だけです。"
   no_permission: "{prefix}&c権限がありません。"
   player_only: "{prefix}&cこのコマンドはプレイヤー専用です。"
   missing_message: "&cメッセージが見つかりません: {key}"
@@ -116,6 +117,8 @@ claim:
   abandoned_subtitle: "&7保護 #{id} は放棄状態になりました"
 
 order:
+  guide: "{prefix}&e取引は /orders で画面を開き、注文をクリックして予約 → 再クリックで納品・購入。作成は対象アイテムを手に持って「注文を作成」。期限切れは自分の注文をクリック、または /orders reclaim <番号> で回収できます。納品・購入を完了すると取引ミッションが進みます。"
+  returned: "{prefix}&a注文 #{id} のアイテム / 預けた代金を回収しました（作成手数料は返却されません）。"
   header: "{prefix}&e注文一覧:"
   entry: "&7- #{id} [{status}] {type} {item} x{amount} 単価{price} 作成者:{owner} 予約:{reservedBy}"
   created: "{prefix}&a注文 #{id} を作成しました。手数料 {fee}。"
@@ -187,6 +190,7 @@ help:
   admin_debug: "&3/frontier admin debug player|claim|order|suspicious &8(claim=保護)"
 
 usage:
+  orders_reclaim: "{prefix}&7/orders reclaim <注文番号>"
   orders_create: "{prefix}&7/frontier orders create <buy|sell> <item> <amount> <unitPrice> [hours]"
   claim_trust: "{prefix}&7/frontier claim trust <player> [claimId] &8(保護の共有追加)"
   claim_untrust: "{prefix}&7/frontier claim untrust <player> [claimId] &8(保護の共有解除)"

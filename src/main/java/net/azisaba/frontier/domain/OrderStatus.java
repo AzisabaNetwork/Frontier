@@ -5,5 +5,6 @@ public enum OrderStatus {
     RESERVED,
     COMPLETED,
     EXPIRED,
-    CANCELLED
+    CANCELLED,
+    RETURNED
 }
