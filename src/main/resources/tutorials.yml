@@ -26,7 +26,7 @@ tutorial:
 
     - id: orders
       title: "注文ボードを見てみよう"
-      description: "/orders で取引画面を開き、他人の注文をクリックして予約、再クリックで納品・購入します。取引完了でウィークリーミッションが進みます。"
+      description: "注文ボードを開いて、他のプレイヤーが出している注文を確認します。"
       objective: "/menu から注文ボードを開くか、/orders を実行する"
       action: "orders_viewed"
       reward_coins: 50
@@ -34,8 +34,8 @@ tutorial:
 
     - id: create_order
       title: "注文を出してみよう"
-      description: "販売はアイテム、買取は代金を預けます。期限切れは自分の注文をクリック、または /orders reclaim <番号> で回収できます。手数料は返却されません。"
-      objective: "対象アイテムを手に持ち /orders →「注文を作成」で種別・数量・単価・期限を設定する"
+      description: "自分でも注文を出して、取引システムを体験します。"
+      objective: "/orders create ... か注文 GUI で注文を1つ作成する"
       action: "order_created"
       reward_coins: 200
       reward_sp: 20

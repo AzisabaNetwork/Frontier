@@ -117,7 +117,6 @@ claim:
   abandoned_subtitle: "&7保護 #{id} は放棄状態になりました"
 
 order:
-  guide: "{prefix}&e取引は /orders で画面を開き、注文をクリックして予約 → 再クリックで納品・購入。作成は対象アイテムを手に持って「注文を作成」。期限切れは自分の注文をクリック、または /orders reclaim <番号> で回収できます。納品・購入を完了すると取引ミッションが進みます。"
   returned: "{prefix}&a注文 #{id} のアイテム / 預けた代金を回収しました（作成手数料は返却されません）。"
   header: "{prefix}&e注文一覧:"
   entry: "&7- #{id} [{status}] {type} {item} x{amount} 単価{price} 作成者:{owner} 予約:{reservedBy}"

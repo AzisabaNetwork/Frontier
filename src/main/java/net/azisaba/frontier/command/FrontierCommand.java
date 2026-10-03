@@ -342,7 +342,6 @@ public final class FrontierCommand implements BasicCommand {
 
     private void handleTutorial(CommandSender sender, String[] args) {
         Player player = requirePlayer(sender);
-        this.messages.send(player, "order.guide");
         if (args.length == 0 || equals(args[0], "status") || equals(args[0], "show")) {
             this.showTutorialStatus(player);
             return;
