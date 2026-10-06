@@ -153,11 +153,10 @@ public final class FrontierListener implements Listener {
     @EventHandler
     public void onDeath(PlayerDeathEvent e) {
         Bukkit.getLogger().info(e.getPlayer().getName() + " has died. Damage type: " + e.getDamageSource().getDamageType());
-        if (e.getDamageSource().getDamageLocation() != null) {
-            Bukkit.getLogger().info(e.getDamageSource().getDamageLocation().toString());
-            for (Player nearbyPlayer : e.getDamageSource().getDamageLocation().getNearbyPlayers(32)) {
-                Bukkit.getLogger().info("Nearby player: " + nearbyPlayer.getName());
-            }
+        Location loc = e.getPlayer().getLocation();
+        Bukkit.getLogger().info(loc.toString());
+        for (Player nearbyPlayer : loc.getNearbyPlayers(16)) {
+            Bukkit.getLogger().info("Nearby player: " + nearbyPlayer.getName());
         }
     }
 

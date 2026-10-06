@@ -13,6 +13,10 @@ tab_list_sp:
 broadcast:
   enabled: false
   interval_minutes: 30
+  # legacy: &色コード / minimessage: <yellow>などのタグ
+  # minimessageの例: "{prefix}<yellow>困ったときは <click:run_command:'/frontier help'>ヘルプ</click> を確認してください。</yellow>"
+  # {prefix}はmessages.ymlのprefixを使用します（minimessageでは<prefix>も使用できます）。
+  format: legacy
   messages:
     - "{prefix}&eFrontierをお楽しみください。"
     - "{prefix}&e困ったときは /frontier help を確認してください。"

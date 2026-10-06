@@ -1,6 +1,10 @@
 package net.azisaba.frontier.service;
 
 import net.azisaba.frontier.message.MessageService;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -54,7 +58,11 @@ public final class BroadcastMessageService {
             this.nextMessageIndex = 0;
         }
 
-        String message = this.messages.format(configuredMessages.get(this.nextMessageIndex));
+        String configuredMessage = configuredMessages.get(this.nextMessageIndex);
+        Component message = "minimessage".equalsIgnoreCase(this.plugin.getConfig().getString("broadcast.format", "legacy"))
+                ? MiniMessage.miniMessage().deserialize(configuredMessage.replace("{prefix}", "<prefix>"),
+                        Placeholder.component("prefix", LegacyComponentSerializer.legacySection().deserialize(this.messages.get("prefix"))))
+                : LegacyComponentSerializer.legacySection().deserialize(this.messages.format(configuredMessage));
         this.nextMessageIndex = (this.nextMessageIndex + 1) % configuredMessages.size();
         for (Player player : Bukkit.getOnlinePlayers()) {
             player.sendMessage(message);
