@@ -347,7 +347,7 @@ public final class FrontierService {
                 chunk.getWorld().getName(),
                 player.getUniqueId(),
                 player.getName(),
-                "frontier_%d_%s_%d_%d".formatted(season.id(), shortName(player.getName()), chunk.getX(), chunk.getZ()),
+                claimRegionId(season.id(), id, player.getName(), chunk.getX(), chunk.getZ()),
                 chunk.getX(),
                 chunk.getZ(),
                 ClaimState.ACTIVE,
@@ -384,7 +384,7 @@ public final class FrontierService {
         this.assertGameplayActionAllowed(this.getRequiredSeason(), "保護の解放", player);
         ClaimRecord claim = this.getManageableClaim(player.getUniqueId(), claimId).withState(ClaimState.ABANDONED);
         this.saveClaimRecord(claim);
-        this.claimProtection.releaseClaimRegion(claim);
+        this.releaseClaimRegionIfUnused(claim);
         this.audit("claim_released", player.getName(), Map.of("claimId", claim.id()));
         this.save();
         return claim;
@@ -412,6 +412,7 @@ public final class FrontierService {
         this.assertGameplayActionAllowed(this.getRequiredSeason(), "保護の共有設定", player);
         ClaimRecord claim = this.getManageableClaim(player.getUniqueId(), claimId);
         this.assertClaimSharingSupported();
+        this.ensureClaimRegion(claim);
         ResolvedPlayer target = this.resolvePlayer(targetName);
         this.claimProtection.addMember(claim, target.playerId(), target.lastKnownName());
         this.audit("claim_member_added", player.getName(), Map.of("claimId", claim.id(), "target", target.lastKnownName()));
@@ -423,6 +424,7 @@ public final class FrontierService {
         this.assertGameplayActionAllowed(this.getRequiredSeason(), "保護の共有設定", player);
         ClaimRecord claim = this.getManageableClaim(player.getUniqueId(), claimId);
         this.assertClaimSharingSupported();
+        this.ensureClaimRegion(claim);
         ResolvedPlayer target = this.resolvePlayer(targetName);
         this.claimProtection.removeMember(claim, target.playerId());
         this.audit("claim_member_removed", player.getName(), Map.of("claimId", claim.id(), "target", target.lastKnownName()));
@@ -434,6 +436,7 @@ public final class FrontierService {
         this.assertGameplayActionAllowed(this.getRequiredSeason(), "保護の共有設定", player);
         ClaimRecord claim = this.getManageableClaim(player.getUniqueId(), claimId);
         this.assertClaimSharingSupported();
+        this.ensureClaimRegion(claim);
         ResolvedPlayer target = this.resolvePlayer(targetName);
         this.claimProtection.addOwner(claim, target.playerId(), target.lastKnownName());
         this.audit("claim_owner_added", player.getName(), Map.of("claimId", claim.id(), "target", target.lastKnownName()));
@@ -445,6 +448,7 @@ public final class FrontierService {
         this.assertGameplayActionAllowed(this.getRequiredSeason(), "保護の共有設定", player);
         ClaimRecord claim = this.getManageableClaim(player.getUniqueId(), claimId);
         this.assertClaimSharingSupported();
+        this.ensureClaimRegion(claim);
         ResolvedPlayer target = this.resolvePlayer(targetName);
         List<String> owners = this.claimProtection.owners(claim);
         boolean listed = owners.stream().anyMatch(owner -> owner.equalsIgnoreCase(target.lastKnownName()));
@@ -781,6 +785,7 @@ public final class FrontierService {
 
     public void tickAutomation() {
         this.reconcileAbandonedClaimRegions();
+        this.repairMissingClaimRegions();
         this.reconcileSeasonSchedule();
         this.getActiveSeason().ifPresent(season -> {
             if (this.isMissionRotationEnabled(season)) {
@@ -796,10 +801,106 @@ public final class FrontierService {
         if (this.claimProtection == null) {
             return;
         }
-        for (ClaimRecord claim : new ArrayList<>(this.repositories.claims())) {
-            if (claim.state() == ClaimState.ABANDONED) {
+        List<ClaimRecord> claims = new ArrayList<>(this.repositories.claims());
+        Set<String> liveRegions = new HashSet<>();
+        for (ClaimRecord claim : claims) {
+            if (claim.state() != ClaimState.ABANDONED) {
+                liveRegions.add(claim.world() + "/" + claim.regionId());
+            }
+        }
+        for (ClaimRecord claim : claims) {
+            if (claim.state() == ClaimState.ABANDONED && !liveRegions.contains(claim.world() + "/" + claim.regionId())) {
                 this.claimProtection.releaseClaimRegion(claim);
             }
+        }
+    }
+
+    /**
+     * Removes the protection region of an abandoned claim, unless another live claim still uses the same region id.
+     * Older claims used region ids without the claim id, so re-claiming the same chunk produced a duplicate id.
+     */
+    private void releaseClaimRegionIfUnused(ClaimRecord claim) {
+        if (this.claimProtection == null || !this.liveClaimsSharingRegion(claim).isEmpty()) {
+            return;
+        }
+        this.claimProtection.releaseClaimRegion(claim);
+    }
+
+    private List<ClaimRecord> liveClaimsSharingRegion(ClaimRecord claim) {
+        return this.repositories.claims().stream()
+                .filter(other -> other.id() != claim.id()
+                        && other.state() != ClaimState.ABANDONED
+                        && other.world().equals(claim.world())
+                        && other.regionId().equals(claim.regionId()))
+                .toList();
+    }
+
+    /**
+     * Lists claims that share a region id or chunk with the given claim (any state), for diagnostics.
+     */
+    public List<ClaimRecord> claimsOverlapping(ClaimRecord claim) {
+        return this.repositories.claims().stream()
+                .filter(other -> other.id() != claim.id()
+                        && other.world().equals(claim.world())
+                        && (other.regionId().equals(claim.regionId())
+                        || (other.chunkX() == claim.chunkX() && other.chunkZ() == claim.chunkZ())))
+                .sorted(Comparator.comparing(ClaimRecord::id))
+                .toList();
+    }
+
+    public boolean hasClaimRegion(ClaimRecord claim) {
+        return this.claimProtection == null || this.claimProtection.hasClaimRegion(claim);
+    }
+
+    public List<ClaimRecord> claimsMissingRegion() {
+        if (this.claimProtection == null) {
+            return List.of();
+        }
+        return this.repositories.claims().stream()
+                .filter(claim -> claim.state() != ClaimState.ABANDONED && !this.claimProtection.hasClaimRegion(claim))
+                .sorted(Comparator.comparing(ClaimRecord::id))
+                .toList();
+    }
+
+    /**
+     * Recreates the protection region of a live claim whose region has disappeared.
+     * Only the primary owner is restored; shared members and co-owners that were stored in the lost region cannot be recovered.
+     *
+     * @return true when the region was recreated
+     */
+    public boolean repairClaimRegion(ClaimRecord claim, String actor) {
+        if (this.claimProtection == null || claim.state() == ClaimState.ABANDONED || this.claimProtection.hasClaimRegion(claim)) {
+            return false;
+        }
+        this.claimProtection.createClaimRegion(claim);
+        if (claim.state() == ClaimState.FROZEN) {
+            this.claimProtection.freezeClaimRegion(claim);
+        }
+        if (!this.claimProtection.hasClaimRegion(claim)) {
+            return false;
+        }
+        this.plugin.getLogger().warning("Recreated missing protection region " + claim.regionId() + " for claim #" + claim.id() + " (" + claim.ownerName() + ")");
+        this.audit("claim_region_restored", actor, Map.of("claimId", claim.id(), "regionId", claim.regionId()));
+        return true;
+    }
+
+    public int repairMissingClaimRegions() {
+        int repaired = 0;
+        for (ClaimRecord claim : this.claimsMissingRegion()) {
+            if (this.repairClaimRegion(claim, "system")) {
+                repaired++;
+            }
+        }
+        return repaired;
+    }
+
+    private void ensureClaimRegion(ClaimRecord claim) {
+        if (this.claimProtection.hasClaimRegion(claim)) {
+            return;
+        }
+        this.repairClaimRegion(claim, "system");
+        if (!this.claimProtection.hasClaimRegion(claim)) {
+            throw fail("error.claim_region_missing", "id", Long.toString(claim.id()));
         }
     }
 
@@ -816,7 +917,7 @@ public final class FrontierService {
                 ClaimRecord updated = claim.withState(next);
                 this.saveClaimRecord(updated);
                 if (next == ClaimState.ABANDONED) {
-                    this.claimProtection.releaseClaimRegion(updated);
+                    this.releaseClaimRegionIfUnused(updated);
                 }
                 this.audit("claim_state_changed", "system", Map.of("claimId", claim.id(), "from", claim.state().name(), "to", next.name()));
                 this.queueClaimNotificationIfDue(claim.ownerUuid(), claim.id(), next, claim.expiresAt(), now);
@@ -1378,11 +1479,17 @@ public final class FrontierService {
 
     private void cacheClaim(ClaimRecord claim) {
         String key = chunkKey(claim.world(), claim.chunkX(), claim.chunkZ());
+        ClaimRecord cached = this.claimByChunkCache.get(key);
         if (claim.state() == ClaimState.ABANDONED) {
-            this.claimByChunkCache.remove(key);
+            // Do not evict a different live claim that re-claimed the same chunk.
+            if (cached != null && cached.id() == claim.id()) {
+                this.claimByChunkCache.remove(key);
+            }
             return;
         }
-        this.claimByChunkCache.put(key, claim);
+        if (cached == null || cached.id() <= claim.id() || cached.state() == ClaimState.ABANDONED) {
+            this.claimByChunkCache.put(key, claim);
+        }
     }
 
     private static String toItemKey(Material material) {
@@ -1391,6 +1498,10 @@ public final class FrontierService {
 
     private static String chunkKey(String world, int chunkX, int chunkZ) {
         return world + ":" + chunkX + ":" + chunkZ;
+    }
+
+    static String claimRegionId(long seasonId, long claimId, String playerName, int chunkX, int chunkZ) {
+        return "frontier_%d_%s_%d_%d_%d".formatted(seasonId, shortName(playerName), chunkX, chunkZ, claimId);
     }
 
     private static String shortName(String playerName) {

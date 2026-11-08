@@ -77,6 +77,12 @@ public final class WorldGuardClaimProtection implements ClaimProtection {
     }
 
     @Override
+    public boolean hasClaimRegion(ClaimRecord claim) {
+        RegionManager manager = this.regionManager(claim.world());
+        return manager == null || manager.getRegion(claim.regionId()) != null;
+    }
+
+    @Override
     public boolean hasConflictingRegion(String worldName, int chunkX, int chunkZ) {
         RegionManager manager = this.regionManager(worldName);
         if (manager == null) {

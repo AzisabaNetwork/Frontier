@@ -19,6 +19,11 @@ public final class NoopClaimProtection implements ClaimProtection {
     }
 
     @Override
+    public boolean hasClaimRegion(ClaimRecord claim) {
+        return true;
+    }
+
+    @Override
     public boolean hasConflictingRegion(String worldName, int chunkX, int chunkZ) {
         return false;
     }

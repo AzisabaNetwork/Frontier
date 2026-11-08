@@ -12,6 +12,12 @@ public interface ClaimProtection {
 
     void freezeClaimRegion(ClaimRecord claim);
 
+    /**
+     * Returns false only when the backing region is known to be missing.
+     * Returns true when the region exists or its presence cannot be determined (e.g. world not loaded).
+     */
+    boolean hasClaimRegion(ClaimRecord claim);
+
     boolean hasConflictingRegion(String worldName, int chunkX, int chunkZ);
 
     boolean isOwner(ClaimRecord claim, UUID playerId);

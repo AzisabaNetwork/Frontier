@@ -41,6 +41,7 @@ error:
   player_not_found: "{prefix}&cプレイヤーが見つかりません: {player}"
   claim_context_required: "{prefix}&c保護の上に立つか、ID を指定してください。"
   claim_sharing_requires_worldguard: "{prefix}&c保護の共有には WorldGuard 連携が必要です。"
+  claim_region_missing: "{prefix}&c保護 #{id} の WorldGuard リージョンが見つからず、復元もできませんでした。管理者に連絡してください。"
   claim_last_owner: "{prefix}&c最後の共同所有者は削除できません。"
   claim_primary_owner_remove: "{prefix}&c保護の作成者の共同所有者権限は削除できません。"
   claim_create_blocked_finale: "{prefix}&cファイナル中は新しい保護を作成できません。"
@@ -158,6 +159,14 @@ admin:
 debug:
   player: "{prefix}&7プレイヤー {player} coins={coins} sp={sp} missions={missions} likes={likes} starter={starter}"
   claim: "{prefix}&7保護 #{id} owner={owner} {world} {x},{z} state={state} expires={expires}"
+  claim_region: "{prefix}&7  region={region} exists={exists} owners=[{owners}] members=[{members}]"
+  claim_overlap: "{prefix}&e  重複: 保護 #{id} owner={owner} state={state} region={region}"
+  claim_no_overlap: "{prefix}&7  同じリージョンID・チャンクを使う他の保護はありません"
+  claim_check_header: "{prefix}&7リージョンが見つからない保護: {count} 件"
+  claim_check_entry: "{prefix}&c  #{id} owner={owner} {world} {x},{z} state={state} region={region}"
+  claim_repaired: "{prefix}&a保護 #{id} のリージョンを再作成しました（共有メンバー・共同所有者は復元されません）。"
+  claim_repair_not_needed: "{prefix}&7保護 #{id} はリージョンの再作成が不要か、再作成できませんでした（放棄済み・ワールド未ロードなど）。"
+  claim_repaired_all: "{prefix}&aリージョンを {count} 件再作成しました（共有メンバー・共同所有者は復元されません）。"
   order: "{prefix}&7注文 #{id} owner={owner} status={status} item={item} x{amount} @{price} reserved={reservedBy}"
   suspicious: "{prefix}&7予約中注文={reservedOrders} 総like数={likes}"
 
@@ -186,7 +195,7 @@ help:
   admin_order: "&3/frontier admin order server <item> <amount> <unitPrice> <hours> &8(サーバー注文)"
   admin_archive: "&3/frontier admin archive export"
   admin_migrate: "&3/frontier admin migrate mysql"
-  admin_debug: "&3/frontier admin debug player|claim|order|suspicious &8(claim=保護)"
+  admin_debug: "&3/frontier admin debug player|claim|claimcheck|claimrepair|order|suspicious &8(claim=保護)"
 
 usage:
   orders_reclaim: "{prefix}&7/orders reclaim <注文番号>"
@@ -199,7 +208,8 @@ usage:
   orders_deliver: "{prefix}&7/frontier orders deliver <id>"
   newcomer_support: "{prefix}&7/frontier newcomer support <player> &8(新規プレイヤーを支援)"
   tutorial: "{prefix}&7/frontier tutorial [status|repeat|restart]"
-  admin_debug: "{prefix}&7/frontier admin debug <player|claim|order|suspicious> ... &8(claim=保護)"
+  admin_debug: "{prefix}&7/frontier admin debug <player|claim|claimcheck|claimrepair|order|suspicious> ... &8(claim=保護)"
+  admin_debug_claimrepair: "{prefix}&7/frontier admin debug claimrepair <claimId|all>"
   admin_debug_player: "{prefix}&7/frontier admin debug player <player>"
   admin_debug_order: "{prefix}&7/frontier admin debug order <id>"
   admin_season_create: "{prefix}&7/frontier admin season create <key> <displayName...>"

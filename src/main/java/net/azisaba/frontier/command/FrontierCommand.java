@@ -441,6 +441,58 @@ public final class FrontierCommand implements BasicCommand {
                         "state", displayClaimState(claim.state()),
                         "expires", DATE_TIME.format(claim.expiresAt())
                 ));
+                this.messages.send(sender, "debug.claim_region", map(
+                        "prefix", this.messages.get("prefix"),
+                        "region", claim.regionId(),
+                        "exists", Boolean.toString(this.service.hasClaimRegion(claim)),
+                        "owners", String.join(", ", this.service.claimOwners(claim)),
+                        "members", String.join(", ", this.service.claimMembers(claim))
+                ));
+                List<ClaimRecord> overlapping = this.service.claimsOverlapping(claim);
+                if (overlapping.isEmpty()) {
+                    this.messages.send(sender, "debug.claim_no_overlap", map("prefix", this.messages.get("prefix")));
+                }
+                for (ClaimRecord other : overlapping) {
+                    this.messages.send(sender, "debug.claim_overlap", map(
+                            "prefix", this.messages.get("prefix"),
+                            "id", Long.toString(other.id()),
+                            "owner", other.ownerName(),
+                            "state", displayClaimState(other.state()),
+                            "region", other.regionId()
+                    ));
+                }
+            }
+            case "claimcheck" -> {
+                List<ClaimRecord> missing = this.service.claimsMissingRegion();
+                this.messages.send(sender, "debug.claim_check_header", map("prefix", this.messages.get("prefix"), "count", Integer.toString(missing.size())));
+                for (ClaimRecord claim : missing) {
+                    this.messages.send(sender, "debug.claim_check_entry", map(
+                            "prefix", this.messages.get("prefix"),
+                            "id", Long.toString(claim.id()),
+                            "owner", claim.ownerName(),
+                            "world", claim.world(),
+                            "x", Integer.toString(claim.chunkX()),
+                            "z", Integer.toString(claim.chunkZ()),
+                            "state", displayClaimState(claim.state()),
+                            "region", claim.regionId()
+                    ));
+                }
+            }
+            case "claimrepair" -> {
+                if (args.length < 2) {
+                    throw new UserMessageException("usage.admin_debug_claimrepair", map("prefix", this.messages.get("prefix")));
+                }
+                if (args[1].equalsIgnoreCase("all")) {
+                    int repaired = this.service.repairMissingClaimRegions();
+                    this.messages.send(sender, "debug.claim_repaired_all", map("prefix", this.messages.get("prefix"), "count", Integer.toString(repaired)));
+                    return;
+                }
+                ClaimRecord claim = this.plugin.repositories().findClaim(parsePositiveLong(args[1], "claim id"));
+                if (claim == null) {
+                    throw new UserMessageException("error.claim_not_found", map("prefix", this.messages.get("prefix")));
+                }
+                boolean repaired = this.service.repairClaimRegion(claim, sender.getName());
+                this.messages.send(sender, repaired ? "debug.claim_repaired" : "debug.claim_repair_not_needed", map("prefix", this.messages.get("prefix"), "id", Long.toString(claim.id())));
             }
             case "order" -> {
                 if (args.length < 2) {
@@ -813,10 +865,16 @@ public final class FrontierCommand implements BasicCommand {
         }
         if (equals(args[1], "debug")) {
             if (args.length == 3) {
-                return filterPrefix(args[2], List.of("player", "claim", "order", "suspicious"));
+                return filterPrefix(args[2], List.of("player", "claim", "claimcheck", "claimrepair", "order", "suspicious"));
             }
             if (equals(args[2], "player") && args.length == 4) {
                 return filterPrefix(args[3], onlinePlayerNames());
+            }
+            if (equals(args[2], "claimrepair") && args.length == 4) {
+                List<String> options = new ArrayList<>();
+                options.add("all");
+                this.service.claimsMissingRegion().forEach(claim -> options.add(Long.toString(claim.id())));
+                return filterPrefix(args[3], options);
             }
         }
         return List.of();

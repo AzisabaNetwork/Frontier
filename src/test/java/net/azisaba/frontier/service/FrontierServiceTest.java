@@ -8,6 +8,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 class FrontierServiceTest {
     @Test
@@ -19,5 +20,14 @@ class FrontierServiceTest {
         assertEquals(ClaimState.WARNING, FrontierService.nextClaimState(claim, Instant.parse("2026-04-07T00:00:00Z"), 7, 10, 14));
         assertEquals(ClaimState.EXPIRED, FrontierService.nextClaimState(claim, Instant.parse("2026-04-10T00:00:00Z"), 7, 10, 14));
         assertEquals(ClaimState.ABANDONED, FrontierService.nextClaimState(claim, Instant.parse("2026-04-14T00:00:00Z"), 7, 10, 14));
+    }
+
+    @Test
+    void reclaimingSameChunkProducesDistinctRegionIds() {
+        String first = FrontierService.claimRegionId(1L, 100L, "RyUpon3083", 30, 4);
+        String second = FrontierService.claimRegionId(1L, 1403L, "RyUpon3083", 30, 4);
+
+        assertEquals("frontier_1_ryupon30_30_4_1403", second);
+        assertNotEquals(first, second);
     }
 }
